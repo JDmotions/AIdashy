@@ -94,7 +94,7 @@ header{transition:transform .25s ease}
 .hdtog{display:none;margin-left:auto;padding:4px 10px;font-size:13px;line-height:1}
 #kpiCard{display:none}
 /* ---- Hochformat / Smartphone ---- */
-@media (max-width:640px), (orientation:landscape) and (max-height:500px){
+@media (max-width:640px), (orientation:landscape) and (max-height:500px) and (pointer:coarse){
   body.hd-min .kpis,body.hd-min .btns{display:none}
   body.hd-hide header{transform:translateY(-110%)}
   header{padding:calc(8px + env(safe-area-inset-top)) 12px 8px;gap:8px 10px}
@@ -156,7 +156,7 @@ header{transition:transform .25s ease}
   #vice .pl2,#vice .pr2{display:none}
 }
 /* ---- Querformat-Handy: Breite nutzen, Hoehe sparen ---- */
-@media (orientation:landscape) and (max-height:500px){
+@media (orientation:landscape) and (max-height:500px) and (pointer:coarse){
   header{padding:calc(4px + env(safe-area-inset-top)) max(12px,env(safe-area-inset-right)) 4px max(12px,env(safe-area-inset-left))}
   main{padding-left:max(10px,env(safe-area-inset-left));padding-right:max(10px,env(safe-area-inset-right))}
   #kpiCard .kpis{grid-template-columns:repeat(6,1fr)}
@@ -432,7 +432,7 @@ function render(){ if(!LAST) return; const d=LAST; SHOWN_MINER=new Set();
 $("#bIp").onclick=()=>{HIDE=!HIDE;localStorage.setItem('cd_hide_ip',HIDE?'1':'0');render();};
 $("#bSnap").onclick=snapshot;
 // Kopfleiste: auf dem Handy standardmaessig eingeklappt, Zustand merken; ?kopf=0/1 erzwingt
-const MOB=matchMedia("(max-width:640px), (orientation:landscape) and (max-height:500px)");
+const MOB=matchMedia("(max-width:640px), (orientation:landscape) and (max-height:500px) and (pointer:coarse)");
 let HMIN=QP.has("kopf")?QP.get("kopf")==="0":(localStorage.getItem("cd_head_min")??(MOB.matches?"1":"0"))==="1";
 function setHead(m){HMIN=m;document.body.classList.toggle("hd-min",m);$("#bHead").textContent=m?"▾ mehr":"▴";localStorage.setItem("cd_head_min",m?"1":"0");}
 setHead(HMIN); $("#bHead").onclick=()=>setHead(!HMIN);

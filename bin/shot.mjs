@@ -29,6 +29,7 @@ const send = (method, params = {}) => new Promise(r => { pend[++id] = r; ws.send
 const evalJs = async expr => (await send("Runtime.evaluate", { expression: expr, returnByValue: true })).result.result.value;
 
 await send("Emulation.setDeviceMetricsOverride", { width: w, height: fixH || 900, deviceScaleFactor: dpr, mobile });
+if (mobile) await send("Emulation.setTouchEmulationEnabled", { enabled: true, maxTouchPoints: 5 });  // pointer:coarse wie am Handy
 await send("Page.navigate", { url });
 // warten bis die Daten gerendert sind (Karten vorhanden), max. ~10 s
 for (let i = 0; i < 40; i++) { if (await evalJs("!!(typeof LAST!=='undefined' && LAST && document.querySelector('#nodes .card'))")) break; await sleep(250); }
