@@ -1,5 +1,5 @@
 {
-  "_kommentar": "Standard-Konfiguration. Beim ersten Start ohne config.json wird diese Datei kopiert. Rechner, Keys und Engines danach im Browser unter /config eintragen. Login fuer den Tunnel: python3 server.py --set-password BENUTZER",
+  "_comment": "Default configuration. On first start without config.json this file is copied. Then add machines, keys and engines in the browser under /config. Login for the tunnel: python3 server.py --set-password USER",
   "port": 8095,
   "host": "0.0.0.0",
   "timeout_s": 4.0,

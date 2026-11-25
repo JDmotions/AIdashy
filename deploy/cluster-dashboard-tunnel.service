@@ -1,5 +1,5 @@
 [Unit]
-Description=Cloudflare-Tunnel fuer das Cluster-Dashboard
+Description=Cloudflare tunnel for the cluster dashboard
 After=network-online.target cluster-dashboard.service
 Wants=cluster-dashboard.service
 

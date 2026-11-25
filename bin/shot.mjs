@@ -1,7 +1,7 @@
-// Ganzseiten-Screenshot per Chrome DevTools Protocol (Node >= 22, kein npm-Paket noetig).
-// Aufruf: node shot.mjs <url> <breite> <dpr> <mobile 0|1> <out.png> [feste_hoehe]
-// feste_hoehe: nur diesen Ausschnitt aufnehmen (z. B. Querformat-Viewport), sonst ganze Seite
-// Misst die echte Seitenhoehe im gerenderten Layout und nimmt alles auf (captureBeyondViewport).
+// Full-page screenshot via Chrome DevTools Protocol (Node >= 22, no npm package needed).
+// Usage: node shot.mjs <url> <width> <dpr> <mobile 0|1> <out.png> [fixed_height]
+// fixed_height: capture only this region (e.g. landscape viewport), otherwise the whole page
+// Measures the real page height in the rendered layout and captures everything (captureBeyondViewport).
 import { spawn } from "node:child_process";
 import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -25,21 +25,21 @@ const ws = new WebSocket(tabs.find(t => t.type === "page").webSocketDebuggerUrl)
 await new Promise(r => (ws.onopen = r));
 let id = 0; const pend = {};
 ws.onmessage = e => { const m = JSON.parse(e.data); if (pend[m.id]) { pend[m.id](m); delete pend[m.id]; }
-  // DEBUG=1: JavaScript-Fehler der Seite auf stderr ausgeben
+  // DEBUG=1: print the page's JavaScript errors to stderr
   if (process.env.DEBUG && m.method === "Runtime.exceptionThrown") console.error("JS-Fehler:", m.params.exceptionDetails?.exception?.description || m.params.exceptionDetails?.text);
   if (process.env.DEBUG && m.method === "Runtime.consoleAPICalled" && m.params.type === "error") console.error("console.error:", m.params.args.map(a => a.value ?? a.description).join(" ")); };
 const send = (method, params = {}) => new Promise(r => { pend[++id] = r; ws.send(JSON.stringify({ id, method, params })); });
 const evalJs = async expr => (await send("Runtime.evaluate", { expression: expr, returnByValue: true })).result.result.value;
 
 await send("Emulation.setDeviceMetricsOverride", { width: w, height: fixH || 900, deviceScaleFactor: dpr, mobile });
-if (mobile) await send("Emulation.setTouchEmulationEnabled", { enabled: true, maxTouchPoints: 5 });  // pointer:coarse wie am Handy
+if (mobile) await send("Emulation.setTouchEmulationEnabled", { enabled: true, maxTouchPoints: 5 });  // pointer:coarse as on a phone
 if (process.env.DEBUG) await send("Runtime.enable");
 await send("Page.navigate", { url });
-// warten bis die Daten gerendert sind (Karten vorhanden), max. ~10 s
+// wait until the data is rendered (cards present), max. ~10 s
 for (let i = 0; i < 40; i++) { if (await evalJs("!!(typeof LAST!=='undefined' && LAST && document.querySelector('#nodes .card'))")) break; await sleep(250); }
 await sleep(800);
 const h = fixH || await evalJs("Math.ceil(document.documentElement.scrollHeight)");
-// Viewport auf volle Hoehe ziehen, damit fixe Hintergruende die ganze Seite abdecken
+// stretch the viewport to full height so fixed backgrounds cover the whole page
 await send("Emulation.setDeviceMetricsOverride", { width: w, height: h, deviceScaleFactor: dpr, mobile });
 await sleep(500);
 const r = await send("Page.captureScreenshot", { format: "png", captureBeyondViewport: true,

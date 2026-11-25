@@ -1,7 +1,7 @@
-// Uebersetzung fuer Dashboard und Konfiguration.
-// Texte: i18n/<sprache>.json (flach: "schluessel": "Text mit {platzhalter}").
-// Neue Sprache = neue Datei in i18n/, sie erscheint automatisch im Umschalter.
-// Statische Texte im HTML: data-i18n (Text), data-i18n-html (HTML), data-i18n-title, data-i18n-ph (placeholder).
+// Translation for the dashboard and configuration.
+// Texts: i18n/<lang>.json (flat: "key": "text with {placeholder}").
+// New language = new file in i18n/, it appears in the switcher automatically.
+// Static texts in HTML: data-i18n (text), data-i18n-html (HTML), data-i18n-title, data-i18n-ph (placeholder).
 const I18N = { lang: "de", locale: "de-DE", dict: {}, fallback: {}, langs: [] };
 
 function t(key, p) {
@@ -27,7 +27,7 @@ async function i18nLoad(lang) {
   I18N.lang = lang; I18N.dict = d; I18N.locale = d["_meta.locale"] || lang;
   if (!Object.keys(I18N.fallback).length) I18N.fallback = (lang === "en" ? d : await get("en")) || {};
   localStorage.setItem("cd_lang", lang);
-  document.cookie = "cd_lang=" + lang + "; path=/; max-age=31536000; SameSite=Lax";   // fuer Login-Seite und Server-Meldungen
+  document.cookie = "cd_lang=" + lang + "; path=/; max-age=31536000; SameSite=Lax";   // for the login page and server messages
   return true;
 }
 
@@ -40,7 +40,7 @@ async function i18nInit() {
   i18nApply();
 }
 
-// Naechste Sprache; onChange wird danach aufgerufen (z. B. neu rendern)
+// Next language; onChange is called afterwards (e.g. re-render)
 async function i18nNext(onChange) {
   const codes = I18N.langs.map(l => l.code);
   const next = codes[(codes.indexOf(I18N.lang) + 1) % codes.length];

@@ -183,7 +183,7 @@ $("#addS").onclick=()=>sRow();
 $("#addK").onclick=()=>kRow();
 $("#addF").onclick=()=>fRow();
 $("#scanAll").onclick=async()=>{ if(!await save()) return; for(const tr of $("#machines").children) scan(tr); };
-$("#bLang").onclick=()=>i18nNext();   // i18nApply uebersetzt auch die Tabellenzeilen, Eingaben bleiben stehen
+$("#bLang").onclick=()=>i18nNext();   // i18nApply also translates the table rows, inputs are kept
 i18nInit().then(()=>fetch("api/config")).then(r=>{if(r.status===401){location.href="login";throw "login"}return r.json()}).then(c=>{fill(c);for(const tr of $("#machines").children) scan(tr);});
 </script>
 </body>

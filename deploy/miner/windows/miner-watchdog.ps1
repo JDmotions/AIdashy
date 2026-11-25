@@ -1,13 +1,13 @@
-# Watchdog fuer einen Miner unter Windows (z. B. SRBMiner-MULTI).
-# Wird von einer geplanten Aufgabe alle 2 Minuten gestartet (siehe install-miner-tasks.ps1).
+# Watchdog for a miner on Windows (e.g. SRBMiner-MULTI).
+# Started every 2 minutes by a scheduled task (see install-miner-tasks.ps1).
 #
-# - Miner-Prozess fehlt                  -> Miner-Aufgabe starten (schtasks /run)
-# - Prozess laeuft, API stumm / Hashrate 0 bei MaxBad Pruefungen in Folge -> beenden und neu starten
-# Greift NICHT ein, wenn die Pausen-Datei existiert. Dashboard und miner-gate legen sie beim
-# Stoppen an und loeschen sie beim Starten - sonst wuerde der Watchdog gegen sie arbeiten.
+# - miner process missing                                   -> start the miner task (schtasks /run)
+# - process running, API silent / hashrate 0 for MaxBad checks in a row -> kill and restart
+# Does NOT act while the pause file exists. The dashboard and miner-gate create it when stopping and
+# delete it when starting - otherwise the watchdog would work against them.
 param(
-  [string]$MinerTask   = "MinerStart",                  # geplante Aufgabe, die den Miner startet
-  [string]$ProcessName = "SRBMiner-MULTI",              # ohne .exe
+  [string]$MinerTask   = "MinerStart",                  # scheduled task that starts the miner
+  [string]$ProcessName = "SRBMiner-MULTI",              # without .exe
   [string]$Api         = "http://127.0.0.1:21550/",
   [string]$PauseFlag   = "$env:ProgramData\miner\paused.flag",
   [int]$GraceSeconds   = 180,
@@ -24,7 +24,7 @@ if (Test-Path $PauseFlag) { Remove-Item $state -Force; exit 0 }
 
 $p = Get-Process -Name $ProcessName | Select-Object -First 1
 if (-not $p) {
-  Log "Prozess $ProcessName fehlt -> starte Aufgabe $MinerTask"
+  Log "process $ProcessName missing -> starting task $MinerTask"
   schtasks /run /tn $MinerTask | Out-Null
   Remove-Item $state -Force
   exit 0
@@ -42,9 +42,9 @@ if ($hr -gt 0) { Remove-Item $state -Force; exit 0 }
 
 $bad = 1 + [int](Get-Content $state -ErrorAction SilentlyContinue)
 Set-Content -Path $state -Value $bad
-Log "Hashrate=$hr (API -1 = keine Antwort), schlecht $bad/$MaxBad"
+Log "hashrate=$hr (-1 = API not answering), bad $bad/$MaxBad"
 if ($bad -ge $MaxBad) {
-  Log "Neustart: beende $ProcessName, starte Aufgabe $MinerTask"
+  Log "restart: killing $ProcessName, starting task $MinerTask"
   Stop-Process -Name $ProcessName -Force
   Start-Sleep -Seconds 5
   schtasks /run /tn $MinerTask | Out-Null

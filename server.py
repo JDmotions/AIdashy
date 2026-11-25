@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
-"""Cluster-Dashboard: fasst die Telemetrie von Maya, Basalt und Strata zusammen.
+"""Cluster dashboard: aggregates the telemetry of Maya, Basalt and Strata.
 
-Fragt pro Node /metrics und /v1/status ab (Maya zusaetzlich /api/savings), normalisiert
-auf ein gemeinsames Schema und liefert es unter /api/all. Die API-Keys bleiben hier.
-Nur stdlib.
+Queries /metrics and /v1/status per node (Maya also /api/savings), normalizes
+to a common schema and serves it at /api/all. The API keys stay here.
+Stdlib only.
 """
 import json
 import os
@@ -17,15 +17,16 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent
 CFG_PATH = ROOT / "config.json"
 if not CFG_PATH.exists():
-    # Neues System: Standard-Konfiguration als Ausgangspunkt anlegen (danach im Browser unter /config anpassen)
+    # New system: create the default config as a starting point (then adjust in the browser at /config)
     CFG_PATH.write_text((ROOT / "config.default.json").read_text())
     CFG_PATH.chmod(0o600)
-    print("config.json fehlte - aus config.default.json angelegt", flush=True)
+    print("config.json was missing - created from config.default.json", flush=True)
 CFG = json.loads(CFG_PATH.read_text())
+CFG.pop("_comment", None)
 CFG.pop("_kommentar", None)
 
-# Adapter fuer fremde Engines (llama.cpp, vLLM, SGLang, Ollama ...). Ausdruecklich per Pfad laden:
-# der Dienst laeuft mit `python3 -I`, dabei steht das eigene Verzeichnis nicht im Suchpfad.
+# Adapters for third-party engines (llama.cpp, vLLM, SGLang, Ollama ...). Load explicitly by path:
+# the service runs with `python3 -I`, so its own directory is not on the search path.
 import importlib.util as _ilu
 _spec = _ilu.spec_from_file_location("engines", ROOT / "engines.py")
 engines = _ilu.module_from_spec(_spec)
@@ -51,7 +52,7 @@ def i18n_langs():
 
 
 def T(lang, key, **p):
-    """Text in Sprache lang (Fallback Englisch, dann Schluessel)."""
+    """Text in language lang (fallback English, then the key)."""
     for code in (lang, "en"):
         if code not in _I18N:
             try:
@@ -67,7 +68,7 @@ def T(lang, key, **p):
 
 
 def M(key, **p):
-    """Meldung als (Schluessel, Parameter) - wird erst beim Antworten in die Sprache des Clients uebersetzt."""
+    """Message as (key, params) - translated into the client's language only when responding."""
     return (key, p)
 
 
@@ -96,7 +97,7 @@ def get(node, path):
 
 
 def parse_ports(spec):
-    """"8080-8099,1234" -> [8080, ..., 8099, 1234]; leer -> []."""
+    """"8080-8099,1234" -> [8080, ..., 8099, 1234]; empty -> []."""
     out = []
     for part in str(spec or "").replace(" ", "").split(","):
         if not part:
@@ -110,13 +111,13 @@ def parse_ports(spec):
 
 
 def enabled_engines(cfg=None):
-    """Konfig-Schritt "Andere Engines": eingeschaltete fremde Engines -> {service: ports}."""
+    """Config step "Other engines": enabled third-party engines -> {service: ports}."""
     e = (cfg or CFG).get("engines") or {}
     return {k: v.get("ports", "") for k, v in e.items() if isinstance(v, dict) and v.get("enabled")}
 
 
 def scan_ports(cfg=None):
-    """Port-Bereich der eigenen Engines plus die Ports der eingeschalteten fremden Engines."""
+    """Port range of our own engines plus the ports of enabled third-party engines."""
     cfg = cfg or CFG
     ports = parse_ports(cfg.get("scan_ports", "8080-8099"))
     for spec in enabled_engines(cfg).values():
@@ -133,7 +134,7 @@ def port_open(host, port):
 
 
 def private_host(host):
-    """Nur LAN-/Tailscale-Ziele: dorthin gehen API-Keys (wie der v28-Proxy: RFC1918)."""
+    """LAN/Tailscale targets only: API keys are sent there (like the v28 proxy: RFC1918)."""
     import ipaddress
     try:
         ips = {ai[4][0] for ai in socket.getaddrinfo(host, None)}
@@ -143,13 +144,13 @@ def private_host(host):
     return bool(ips) and all(ipaddress.ip_address(i).is_private or ipaddress.ip_address(i) in cgnat for i in ips)
 
 
-NEG = {}             # (host, port) -> Zeitpunkt: dort lief keine Engine (nicht jede Runde neu abklopfen)
-NEG_S = 600          # Ports, die antworten, aber keine Engine sind (Gateways, Webseiten): 10 min Ruhe
+NEG = {}             # (host, port) -> time: no engine was running there (don't re-probe every round)
+NEG_S = 600          # Ports that answer but are not an engine (gateways, websites): 10 min back-off
 _GATEWAY = __import__("re").compile(r"gateway|proxy|router|balancer", __import__("re").I)
 
 
 def probe(host, port):
-    """Eigene Engine (/health mit max_context + /v1/status), sonst eine bekannte fremde Engine."""
+    """Own engine (/health with max_context + /v1/status), otherwise a known third-party engine."""
     if time.time() - NEG.get((host, port), 0) < NEG_S:
         return None
     base = f"http://{host}:{port}"
@@ -159,7 +160,7 @@ def probe(host, port):
         h = None
     if isinstance(h, dict) and "max_context" not in h and (
             "backends" in h or _GATEWAY.search(str(h.get("service") or h.get("name") or ""))):
-        NEG[(host, port)] = time.time()          # Gateway/Proxy vor anderen Engines: keine eigene Karte
+        NEG[(host, port)] = time.time()          # Gateway/proxy in front of other engines: no card of its own
         return None
     if not isinstance(h, dict) or "max_context" not in h:
         try:
@@ -189,8 +190,8 @@ DISC_BUSY = set()
 
 
 def discover(machine, force=False):
-    """Engines eines Rechners. Veraltetes Ergebnis wird sofort geliefert und im Hintergrund erneuert,
-    damit eine langsame Suche (z. B. Gateways mit Timeouts) die Abfrage nicht aufhaelt."""
+    """Engines of a host. A stale result is returned immediately and refreshed in the background,
+    so a slow scan (e.g. gateways with timeouts) does not hold up the query."""
     host = machine["host"]
     with DISC_LOCK:
         d = DISC.get(host)
@@ -218,7 +219,7 @@ def _scan(machine, known):
             DISC[host] = {"at": time.time(), "servers": []}
         return []
     ports = scan_ports()
-    keep = {s["port"]: s for s in known if not s.get("auth_error")}     # schon bekannte Engines nicht neu identifizieren
+    keep = {s["port"]: s for s in known if not s.get("auth_error")}     # don't re-identify already known engines
     with ThreadPoolExecutor(16) as ex:
         open_ports = [p for p, ok in zip(ports, ex.map(lambda p: port_open(host, p), ports)) if ok]
         servers = [s for s in ex.map(lambda p: keep.get(p) or probe(host, p), open_ports) if s]
@@ -232,7 +233,7 @@ def num(v, default=None):
 
 
 def gpus_of(m, st):
-    """Pro-GPU-Liste in einem Format: Maya/Basalt liefern hardware.gpus, Strata nur flache Felder."""
+    """Per-GPU list in one format: Maya/Basalt provide hardware.gpus, Strata only flat fields."""
     hw = m.get("hardware") or {}
     hs = m.get("hardware_static") or {}
     names = {}
@@ -275,7 +276,7 @@ def history_of(m):
     res = {"tok_s": h.get("tok_s") or [], "prefill": h.get("prefill_tok_s_mean") or [],
            "cpu": h.get("cpu") or [], "gpu_util": h.get("gpu_util") or [],
            "gpu_temp": h.get("gpu_temp") or [], "gpu_power": h.get("gpu_power") or []}
-    if not res["gpu_util"] and h.get("gpus"):          # Basalt: pro GPU
+    if not res["gpu_util"] and h.get("gpus"):          # Basalt: per GPU
         gs = h["gpus"]
         n = min(len(g.get("util") or []) for g in gs)
         res["gpu_util"] = [sum(g["util"][i] for g in gs) / len(gs) for i in range(n)]
@@ -295,7 +296,7 @@ def normalize(node, m, st, sav):
     output = num(t.get("output_tokens"), num(t.get("written"), 0))
     pms, dms = num(t.get("prompt_ms"), 0), num(t.get("decode_ms"), 0)
     reqs = m.get("requests") or []
-    # Drafts: Strata hat Totals; sonst aus den letzten Requests
+    # Drafts: Strata has totals; otherwise from the last requests
     d_off = num(t.get("drafts_offered"))
     d_acc = num(t.get("drafts_accepted"))
     drafts_scope = "gesamt"
@@ -308,9 +309,9 @@ def normalize(node, m, st, sav):
     tiers = (m.get("tiers") or {}).get("now") or {}
     peak = (t.get("peak_decode") or {}).get("tok_s")
     peak_scope = "seit Start" if peak is not None else "beobachtet"
-    # Peaks wie Strata Fleet Monitor v28: nur direkt beobachtete Raten.
-    # Prefill: prefill_tok_s_mean (live + Verlauf) bzw. das, was der Server selbst als best/prefill_tok_s
-    # meldet - nicht aus prompt_tokens - reused abgeleitet.
+    # Peaks as in Strata Fleet Monitor v28: only directly observed rates.
+    # Prefill: prefill_tok_s_mean (live + history) or what the server itself reports as best/prefill_tok_s
+    # - not derived as prompt_tokens minus reused.
     hist = m.get("history") or {}
     pf_obs = [num(live.get("prefill_tok_s_mean"), 0), num(((m.get("best") or {}).get("prefill") or {}).get("tok_s"), 0)]
     pf_obs += [num(x, 0) for x in hist.get("prefill_tok_s_mean") or []]
@@ -436,7 +437,7 @@ def collect_machine(machine):
     fill_hardware(machine, out)
     if any(not d["online"] and not d.get("error_code") for d in out):
         with DISC_LOCK:
-            DISC.pop(machine["host"], None)        # beim naechsten Tick neu suchen
+            DISC.pop(machine["host"], None)        # rescan on the next tick
     return out
 
 
@@ -444,7 +445,7 @@ AGENT = {}           # host -> {"at": t, "data": {...} | None}
 
 
 def gpu_agent(host):
-    """Optionaler GPU-Agent (bin/gpu-agent.py) auf dem Rechner; Fehlschlag 30 s merken."""
+    """Optional GPU agent (bin/gpu-agent.py) on the host; remember a failure for 30 s."""
     port = CFG.get("gpu_agent_port", 9835)
     a = AGENT.get(host)
     if a and time.time() - a["at"] < (1.5 if a["data"] else CFG.get("rediscover_s", 30)):
@@ -458,8 +459,8 @@ def gpu_agent(host):
 
 
 def fill_hardware(machine, nodes):
-    """Fremde Engines melden keine Hardware. Werte vom eigenen Engine-Server auf demselben Rechner
-    uebernehmen, sonst vom GPU-Agenten."""
+    """Third-party engines report no hardware. Take values from our own engine server on the same host,
+    otherwise from the GPU agent."""
     need = [d for d in nodes if d.get("online") and d.get("adapter") and not d.get("gpus")]
     if not need:
         return
@@ -498,8 +499,8 @@ except Exception:
 
 
 def remember_peaks(d):
-    """Beobachtete Peaks pro Node dauerhaft merken (wie v28 im localStorage, hier serverseitig).
-    Neustart eines Servers (anderes `started`) setzt nichts zurueck - es sind Allzeit-Peaks des Dashboards."""
+    """Persist observed peaks per node (like v28 in localStorage, here server-side).
+    A server restart (different `started`) resets nothing - these are the dashboard's all-time peaks."""
     if not d.get("online"):
         return
     t = d["totals"]
@@ -523,14 +524,14 @@ COLLECT_LOCK = threading.Lock()
 
 
 def collect_all():
-    """Alle Rechner parallel abfragen. Ergebnis wird kurz zwischengespeichert: mehrere offene Browser
-    (Handy, Desktop, Tunnel) loesen dann nicht je eine eigene Abfragewelle an alle Nodes aus."""
+    """Query all hosts in parallel. The result is cached briefly so several open browsers
+    (phone, desktop, tunnel) don't each trigger their own query wave to all nodes."""
     with COLLECT_LOCK:
         if COLLECT["data"] and time.time() - COLLECT["at"] < min(1.5, CFG.get("poll_s", 2) * 0.75):
             return json.loads(json.dumps(COLLECT["data"]))
         with ThreadPoolExecutor(max(1, min(64, len(CFG["machines"])))) as ex:
             nodes = [d for lst in ex.map(collect_machine, CFG["machines"]) for d in lst]
-        # OpenAI-Rueckfall, dessen Modell eine richtig erkannte Engine schon anbietet = Proxy davor -> keine Karte
+        # OpenAI fallback whose model a properly detected engine already serves = proxy in front -> no card
         known = {str(d.get("model") or "").lower() for d in nodes if d.get("online") and d.get("service") != "openai"}
         nodes = [d for d in nodes if not (d.get("service") == "openai" and d.get("online")
                                           and str(d.get("model") or "").lower() in known)]
@@ -543,15 +544,15 @@ def collect_all():
 
 # ---------------------------------------------------------------- Miner (SRBMiner)
 import subprocess
-SHOT_LOCK = threading.Lock()   # nur ein headless Chrome gleichzeitig
+SHOT_LOCK = threading.Lock()   # only one headless Chrome at a time
 
 MINER = {}             # host -> status
 MINER_LOCK = threading.Lock()
-MINER_BUSY = set()     # hosts mit laufender Refresh/Aktion
+MINER_BUSY = set()     # hosts with a refresh/action in progress
 
 
 def _miner_run(host, cfg, what):
-    """Befehl ausfuehren: systemd lokal (polkit-Regel), sonst per SSH-Key. Gibt (rc, stdout) zurueck."""
+    """Run a command: systemd locally (polkit rule), otherwise via SSH key. Returns (rc, stdout)."""
     if cfg["kind"] == "systemd":
         if what == "status":
             try:
@@ -559,10 +560,10 @@ def _miner_run(host, cfg, what):
                     return 0, r.read().decode("utf-8", "replace")
             except Exception:
                 return 1, ""
-        if what == "start":   # vom miner-gate eingefroren? erst auftauen
+        if what == "start":   # frozen by miner-gate? thaw first
             subprocess.run(["pkill", "-CONT", "-x", "SRBMiner-MULTI"], capture_output=True)
-        # sudo -n: sudoers-Eintrag /etc/sudoers.d/miner-dashboard; fehlt er, schlaegt es fehl statt
-        # (wie polkit) auf dem Desktop nach einem Passwort zu fragen
+        # sudo -n: sudoers entry /etc/sudoers.d/miner-dashboard; if missing, fail instead of
+        # asking for a password on the desktop (as polkit would)
         r = subprocess.run(["sudo", "-n", "/usr/bin/systemctl", what, cfg["unit"]], capture_output=True, text=True,
                            timeout=30)
         return r.returncode, r.stdout + r.stderr
@@ -603,14 +604,14 @@ def miner_refresh(host):
             rc, out = _miner_run(host, cfg, "status")
             p = _miner_parse(out)
             st = {"available": True, **(p or {"running": False})}
-            # Prozess laeuft, API noch nicht oben (SRBMiner braucht beim Start einige Sekunden)
+            # process running, API not up yet (SRBMiner needs a few seconds to start)
             if not p and cfg.get("process") and cfg["process"].lower() in out.lower():
                 st.update(running=True, starting=True)
             if cfg["kind"] == "systemd":
                 r = subprocess.run(["systemctl", "is-active", cfg["unit"]], capture_output=True, text=True)
                 st["service"] = r.stdout.strip()
                 st["running"] = st["running"] or st["service"] in ("active", "activating")
-                # miner-gate friert den Miner per SIGSTOP ein (Unit bleibt 'active'): als pausiert melden
+                # miner-gate freezes the miner via SIGSTOP (unit stays 'active'): report as paused
                 r = subprocess.run(["ps", "-o", "stat=", "-C", "SRBMiner-MULTI"], capture_output=True, text=True)
                 if r.stdout.strip().startswith("T"):
                     st.update(running=False, paused=True)
@@ -623,7 +624,7 @@ def miner_refresh(host):
 
 
 def miner_status():
-    """Cache liefern, veraltete Eintraege im Hintergrund auffrischen (SSH dauert ~0,5-1 s)."""
+    """Return the cache, refresh stale entries in the background (SSH takes ~0.5-1 s)."""
     now = time.time()
     for host in CFG.get("miners") or {}:
         with MINER_LOCK:
@@ -649,7 +650,7 @@ def miner_action(host, action):
     except Exception as ex:
         rc, out = 1, str(ex)
     want = action == "start"
-    for _ in range(15 if want else 6):                       # bis 30 s (Start) bzw. 12 s (Stopp)
+    for _ in range(15 if want else 6):                       # up to 30 s (start) or 12 s (stop)
         time.sleep(2)
         miner_refresh(host)
         with MINER_LOCK:
@@ -663,12 +664,12 @@ def miner_action(host, action):
 
 
 
-# ---------------------------------------------------------------- Login (fuer den Cloudflare-Tunnel)
+# ---------------------------------------------------------------- Login (for the Cloudflare tunnel)
 import hashlib
 import hmac
 from http.cookies import SimpleCookie
 
-FAILS = {}          # client -> [zeitpunkte]
+FAILS = {}          # client -> [timestamps]
 FAIL_LOCK = threading.Lock()
 TUNNEL_URL_FILE = ROOT / "tunnel.url"
 
@@ -703,7 +704,7 @@ def locked(client):
     with FAIL_LOCK:
         f = [t for t in FAILS.get(client, []) if now - t < 600]
         FAILS[client] = f
-        return len(f) >= 5          # 5 Fehlversuche in 10 min -> gesperrt
+        return len(f) >= 5          # 5 failed attempts in 10 min -> locked
 
 
 def fail(client):
@@ -734,7 +735,7 @@ def public_config():
     c["keys"] = [{"index": i, "mask": mask(k)} for i, k in enumerate(CFG.get("keys") or [])]
     c.pop("auth", None)
     c.pop("miners", None)
-    # alle bekannten fremden Engines mit Standard-Ports (fuer den Konfig-Schritt "Andere Engines")
+    # all known third-party engines with default ports (for the config step "Other engines")
     c["engine_catalog"] = [{"id": k, "name": engines.DEFAULTS[k][0], "ports": engines.PORTS[k]} for k in engines.ORDER]
     c.setdefault("engines", {})
     c["rev"] = config_rev()
@@ -742,7 +743,7 @@ def public_config():
 
 
 def config_rev():
-    """Stand der config.json - die Konfig-Seite schickt ihn beim Speichern mit (Schutz vor veralteten Tabs)."""
+    """Version of config.json - the config page sends it back on save (guards against stale tabs)."""
     import hashlib as _hl
     return _hl.sha256(CFG_PATH.read_bytes()).hexdigest()[:16]
 
@@ -751,8 +752,8 @@ EXPORT_VERSION = 1
 
 
 def export_config(secrets):
-    """Konfiguration als Datei. Ohne Geheimnisse: keine API-Keys, kein Login (Passwort-Hash/Secret).
-    SSH-Schluessel selbst sind nie enthalten, nur ihre Pfade."""
+    """Configuration as a file. Without secrets: no API keys, no login (password hash/secret).
+    SSH keys themselves are never included, only their paths."""
     c = json.loads(json.dumps(CFG))
     if not secrets:
         c["keys"] = []
@@ -763,7 +764,7 @@ def export_config(secrets):
 
 
 def check_miners(miners):
-    """Miner-Eintraege pruefen (sie fuehren Befehle aus - nur bekannte Formen zulassen)."""
+    """Validate miner entries (they run commands - allow only known forms)."""
     import re
     out, err = {}, []
     if not isinstance(miners, dict):
@@ -786,8 +787,8 @@ def check_miners(miners):
 
 
 def import_config(data, allow_privileged):
-    """Export-Datei uebernehmen. Fehlende Keys -> bestehende behalten. Login (auth) wird nie importiert,
-    damit man sich nicht aussperrt. Miner-Befehle nur aus dem LAN (nicht ueber den Tunnel)."""
+    """Apply an export file. Missing keys -> keep existing ones. Login (auth) is never imported,
+    so you can't lock yourself out. Miner commands only from the LAN (not via the tunnel)."""
     if not isinstance(data, dict) or not isinstance(data.get("machines"), list):
         return False, [M("srv.no_config")], []
     notes = []
@@ -821,7 +822,7 @@ def import_config(data, allow_privileged):
 
 
 def apply_config(new, miners=None):
-    """Pruefen, Keys zusammensetzen ({"keep": i} = alter Key i, {"value": "..."} = neu), schreiben, neu laden."""
+    """Validate, assemble keys ({"keep": i} = old key i, {"value": "..."} = new), write, reload."""
     err = []
     machines = []
     for m in new.get("machines") or []:
@@ -867,7 +868,7 @@ def apply_config(new, miners=None):
            "miners": miners if miners is not None else (CFG.get("miners") or {}),
            **({"auth": CFG["auth"]} if CFG.get("auth") else {})}
     path = ROOT / "config.json"
-    try:   # Sicherung enthaelt Keys + Passwort-Hash -> nur fuer den Besitzer lesbar
+    try:   # backup contains keys + password hash -> readable by the owner only
         bak = ROOT / "config.json.bak"
         bak.write_text(path.read_text())
         bak.chmod(0o600)
@@ -888,8 +889,8 @@ class H(BaseHTTPRequestHandler):
         pass
 
     def _screenshot(self, q):
-        """Ganze Seite als PNG: bin/shot.mjs (headless Chrome per CDP) misst die Seitenhoehe im
-        gerenderten Layout selbst und nimmt alles auf. Handy: echte Breite, alle Tabs untereinander."""
+        """Full page as PNG: bin/shot.mjs (headless Chrome via CDP) measures the page height in the
+        rendered layout itself and captures everything. Phone: real width, all tabs stacked."""
         import shutil
         import tempfile
         import urllib.parse
@@ -942,7 +943,7 @@ class H(BaseHTTPRequestHandler):
             pass
 
     def _lang(self):
-        """Sprache des Clients: ?lang= > Cookie cd_lang > Accept-Language > Englisch."""
+        """Client language: ?lang= > cookie cd_lang > Accept-Language > English."""
         import re as _re
         codes = {l["code"] for l in i18n_langs()}
         q = dict(x.split("=", 1) for x in self.path.partition("?")[2].split("&") if "=" in x)
@@ -959,7 +960,7 @@ class H(BaseHTTPRequestHandler):
         return str(x)
 
     def _json(self, code, obj):
-        if isinstance(obj, dict):   # Meldungen (Schluessel + Parameter) in die Sprache des Clients
+        if isinstance(obj, dict):   # messages (key + params) into the client's language
             for k in ("errors", "notes"):
                 if isinstance(obj.get(k), list):
                     obj[k] = [self._tr(x) for x in obj[k]]
@@ -1069,7 +1070,7 @@ class H(BaseHTTPRequestHandler):
             self.send_header("Content-Type", "application/json; charset=utf-8")
             self.send_header("Cache-Control", "no-store")
             self.send_header("Content-Disposition", f'attachment; filename="cluster-dashboard-config'
-                             f'{"-MIT-GEHEIMNISSEN" if secrets else ""}-{time.strftime("%Y-%m-%d")}.json"')
+                             f'{"-WITH-SECRETS" if secrets else ""}-{time.strftime("%Y-%m-%d")}.json"')
             self.send_header("Content-Length", str(len(body)))
             self.end_headers()
             self.wfile.write(body)
@@ -1085,7 +1086,7 @@ class H(BaseHTTPRequestHandler):
             return self._login_post()
         if self._need_login():
             return self._deny(self.path.split("?")[0])
-        # CSRF: nur von dieser Seite (fremde Origins abweisen; curl ohne Origin ist ok)
+        # CSRF: only from this page (reject foreign origins; curl without Origin is ok)
         origin = self.headers.get("Origin")
         if origin and origin.split("://", 1)[-1] != self.headers.get("Host", ""):
             return self._json(403, {"ok": False, "errors": [M("srv.foreign_origin")]})
@@ -1124,7 +1125,7 @@ class H(BaseHTTPRequestHandler):
                 return self._json(400, {"ok": False, "errors": [M("srv.host_missing")]})
             m = next((x for x in CFG["machines"] if x["host"] == host), {"host": host, "name": host})
             t0 = time.time()
-            for key in [k for k in NEG if k[0] == host]:     # "Jetzt suchen" = wirklich frisch suchen
+            for key in [k for k in NEG if k[0] == host]:     # "Scan now" = really scan afresh
                 NEG.pop(key, None)
             with DISC_LOCK:
                 DISC.pop(host, None)
@@ -1140,23 +1141,23 @@ class H(BaseHTTPRequestHandler):
 
 
 def set_password(user):
-    """Login fuer den Tunnel-Zugang anlegen/aendern: python3 server.py --set-password BENUTZER"""
+    """Create/change the login for tunnel access: python3 server.py --set-password USER"""
     import getpass
     import secrets as _s
-    pw = getpass.getpass("Neues Passwort: ")
-    if len(pw) < 10 or pw != getpass.getpass("Wiederholen: "):
-        raise SystemExit("abgebrochen: Passwort zu kurz (min. 10) oder ungleich")
+    pw = getpass.getpass("New password: ")
+    if len(pw) < 10 or pw != getpass.getpass("Repeat: "):
+        raise SystemExit("aborted: password too short (min. 10) or mismatch")
     salt = _s.token_bytes(16)
     it = 310000
     CFG["auth"] = {**(CFG.get("auth") or {"session_h": 168, "require_for": "tunnel"}), "user": user,
                    "salt": salt.hex(), "iterations": it,
                    "hash": hashlib.pbkdf2_hmac("sha256", pw.encode(), salt, it).hex(),
-                   "secret": _s.token_hex(32)}          # neues Secret = alte Sitzungen ungueltig
+                   "secret": _s.token_hex(32)}          # new secret = old sessions invalid
     tmp = CFG_PATH.with_suffix(".tmp")
     tmp.write_text(json.dumps(CFG, indent=2, ensure_ascii=False))
     tmp.chmod(0o600)
     tmp.replace(CFG_PATH)
-    print(f"Login fuer '{user}' gespeichert. Dienst neu starten: systemctl --user restart cluster-dashboard")
+    print(f"Login for '{user}' saved. Restart the service: systemctl --user restart cluster-dashboard")
 
 
 if __name__ == "__main__":

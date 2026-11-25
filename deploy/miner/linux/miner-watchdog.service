@@ -1,4 +1,4 @@
-# Einmaliger Lauf des Watchdogs (wird von miner-watchdog.timer ausgeloest).
+# One watchdog run (triggered by miner-watchdog.timer).
 # Installation:
 #   sudo install -m 755 miner-watchdog.sh /usr/local/sbin/miner-watchdog.sh
 #   sudo cp miner-watchdog.service miner-watchdog.timer /etc/systemd/system/

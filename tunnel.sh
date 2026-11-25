@@ -1,8 +1,8 @@
 #!/bin/bash
-# Cloudflare-Quick-Tunnel fuer das Cluster-Dashboard. Neue URL -> tunnel.url (+ optional Mail).
-# Optionale lokale Einstellungen in tunnel.env (nicht im Git), z. B.:
-#   MAIL_CMD=sendmail          # Programm mit Aufruf: MAIL_CMD -s "Betreff" "Text"
-#   MAIL_PREFIX="opencode: "   # Praefix fuer den Betreff
+# Cloudflare quick tunnel for the dashboard. New URL -> tunnel.url (+ optional e-mail).
+# Optional local settings in tunnel.env (not in git), e.g.:
+#   MAIL_CMD=sendmail          # program called as: MAIL_CMD -s "subject" "text"
+#   MAIL_PREFIX="[dash] "      # subject prefix
 DIR="$(cd "$(dirname "$0")" && pwd)"
 [ -f "$DIR/tunnel.env" ] && . "$DIR/tunnel.env"
 LOG="$DIR/tunnel.log"; URLF="$DIR/tunnel.url"
@@ -20,9 +20,9 @@ if [ -n "$URL" ]; then
   OLD=$(cat "$URLF.last" 2>/dev/null)
   echo "$URL" > "$URLF"; echo "$URL" > "$URLF.last"; chmod 600 "$URLF.last"
   if [ "$URL" != "$OLD" ] && [ -n "$MAIL_CMD" ]; then
-    PATH="$HOME/.local/bin:$PATH" $MAIL_CMD -s "${MAIL_PREFIX}Cluster-Dashboard extern erreichbar" \
-      "Neue Tunnel-URL: $URL
-Login wie eingerichtet. Im LAN ohne Login: http://${LAN:-<rechner>}:$PORT/" >/dev/null 2>&1
+    PATH="$HOME/.local/bin:$PATH" $MAIL_CMD -s "${MAIL_PREFIX}Cluster dashboard reachable from outside" \
+      "New tunnel URL: $URL
+Login as configured. On the LAN without login: http://${LAN:-<host>}:$PORT/" >/dev/null 2>&1
   fi
 fi
 wait $CF

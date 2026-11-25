@@ -1,13 +1,13 @@
-# Legt zwei geplante Aufgaben fuer den aktuell angemeldeten Benutzer an (PowerShell als Administrator):
-#   1. MinerStart     - startet den Miner bei der Anmeldung, in der Benutzersitzung (GPU/Konsole),
-#                       Neustart bei Fehler, nie zwei Instanzen. Dashboard/miner-gate starten ihn per
+# Creates two scheduled tasks for the currently logged-on user (PowerShell as administrator):
+#   1. MinerStart     - starts the miner at logon, in the user session (GPU/console),
+#                       restart on failure, never two instances. The dashboard/miner-gate start it with
 #                       `schtasks /run /tn MinerStart`.
-#   2. MinerWatchdog  - alle 2 Minuten miner-watchdog.ps1 (unsichtbar).
+#   2. MinerWatchdog  - runs miner-watchdog.ps1 every 2 minutes (hidden).
 #
-# Aufruf, z. B.:
+# Usage, e.g.:
 #   powershell -ExecutionPolicy Bypass -File install-miner-tasks.ps1 `
 #     -MinerExe "D:\miner\SRBMiner-MULTI.exe" -MinerArgs "--config-file D:\miner\config.txt --api-enable --api-port 21550"
-# oder mit einem eigenen Start-Programm/-Skript statt der exe (z. B. ein .bat oder ein eigenes Start-Programm).
+# or with your own launcher/script instead of the exe (e.g. a .bat).
 param(
   [Parameter(Mandatory = $true)][string]$MinerExe,
   [string]$MinerArgs = "",
@@ -28,7 +28,7 @@ $set = New-ScheduledTaskSettingsSet -MultipleInstances IgnoreNew -ExecutionTimeL
        -RestartCount 5 -RestartInterval (New-TimeSpan -Minutes 1) -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries `
        -StartWhenAvailable
 Register-ScheduledTask -TaskName $MinerTask -Action $action -Trigger $trigger -Principal $principal -Settings $set -Force | Out-Null
-Write-Host "Aufgabe $MinerTask angelegt."
+Write-Host "Task $MinerTask created."
 
 # 2. Watchdog
 $dir = Join-Path $env:ProgramData "miner"
@@ -42,5 +42,5 @@ $wdTrigger = New-ScheduledTaskTrigger -Once -At (Get-Date).AddMinutes(1) `
 $wdSet = New-ScheduledTaskSettingsSet -MultipleInstances IgnoreNew -ExecutionTimeLimit (New-TimeSpan -Minutes 1) `
   -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -StartWhenAvailable
 Register-ScheduledTask -TaskName $WatchdogTask -Action $wdAction -Trigger $wdTrigger -Principal $principal -Settings $wdSet -Force | Out-Null
-Write-Host "Aufgabe $WatchdogTask angelegt (alle 2 min). Log: $dir\watchdog.log"
-Write-Host "Pausieren ohne Watchdog-Eingriff: Datei $dir\paused.flag anlegen."
+Write-Host "Task $WatchdogTask created (every 2 min). Log: $dir\watchdog.log"
+Write-Host "To pause without the watchdog interfering: create $dir\paused.flag."

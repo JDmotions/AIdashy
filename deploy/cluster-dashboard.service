@@ -1,5 +1,5 @@
 [Unit]
-Description=Cluster-Telemetrie-Dashboard (Maya/Basalt/Strata)
+Description=AIdashy cluster telemetry dashboard
 After=network-online.target
 
 [Service]

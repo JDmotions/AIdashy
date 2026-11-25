@@ -1,19 +1,19 @@
 #!/usr/bin/env bash
-# Watchdog fuer einen Miner unter systemd: startet die Unit neu, wenn sie laeuft,
-# aber die Miner-API nicht antwortet oder die Hashrate mehrfach hintereinander 0 ist.
-# Laeuft als root ueber miner-watchdog.timer (alle 2 min).
+# Watchdog for a miner under systemd: restarts the unit when it is running but the miner API
+# does not answer or the hashrate is 0 several times in a row.
+# Runs as root via miner-watchdog.timer (every 2 min).
 #
-# Greift NICHT ein, wenn
-#   - die Unit absichtlich gestoppt ist (Dashboard-Schalter, miner-gate: systemctl stop),
-#   - der Prozess pausiert ist (miner-gate: SIGSTOP, Status "T"),
-#   - der Start weniger als GRACE Sekunden her ist,
-#   - die Datei $PAUSE_FLAG existiert (manuelle Wartung).
+# Does NOT act when
+#   - the unit was stopped on purpose (dashboard switch, miner-gate: systemctl stop),
+#   - the process is paused (miner-gate: SIGSTOP, state "T"),
+#   - the start was less than GRACE seconds ago,
+#   - the file $PAUSE_FLAG exists (manual maintenance).
 set -u
 UNIT="${UNIT:-miner.service}"
 PROC="${PROC:-SRBMiner-MULTI}"
 API="${API:-http://127.0.0.1:21550/}"
-GRACE="${GRACE:-180}"          # Sekunden nach dem Start ignorieren (DAG/Autotune)
-MAX_BAD="${MAX_BAD:-3}"        # so viele schlechte Pruefungen in Folge -> Neustart
+GRACE="${GRACE:-180}"          # ignore the first seconds after a start (DAG/autotune)
+MAX_BAD="${MAX_BAD:-3}"        # this many bad checks in a row -> restart
 STATE="${STATE:-/run/miner-watchdog.count}"
 PAUSE_FLAG="${PAUSE_FLAG:-/run/miner.paused}"
 log() { logger -t miner-watchdog "$*"; echo "$*"; }
@@ -24,7 +24,7 @@ log() { logger -t miner-watchdog "$*"; echo "$*"; }
 pid=$(systemctl show -p MainPID --value "$UNIT")
 [ -n "$pid" ] && [ "$pid" != 0 ] || exit 0
 stat=$(ps -o stat= -p "$pid" 2>/dev/null | tr -d ' ')
-case "$stat" in T*) rm -f "$STATE"; exit 0;; esac        # vom Gate pausiert
+case "$stat" in T*) rm -f "$STATE"; exit 0;; esac        # paused by the gate
 
 since=$(systemctl show -p ActiveEnterTimestampMonotonic --value "$UNIT")
 now=$(awk '{printf "%d", $1*1000000}' /proc/uptime)
@@ -43,9 +43,9 @@ if [ "${hr%.*}" -gt 0 ] 2>/dev/null; then rm -f "$STATE"; exit 0; fi
 
 bad=$(( $(cat "$STATE" 2>/dev/null || echo 0) + 1 ))
 echo "$bad" > "$STATE"
-log "$UNIT: Hashrate=${hr} (API -1 = keine Antwort), schlecht $bad/$MAX_BAD"
+log "$UNIT: hashrate=${hr} (-1 = API not answering), bad $bad/$MAX_BAD"
 if [ "$bad" -ge "$MAX_BAD" ]; then
-  log "$UNIT: Neustart"
+  log "$UNIT: restarting"
   rm -f "$STATE"
   systemctl restart "$UNIT"
 fi

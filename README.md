@@ -1,117 +1,131 @@
 # AIdashy
 
+🇬🇧 English · 🇩🇪 [Deutsch](README.de.md)
+
 A configurable dashboard for multiple different AI models. For the start, Strata, Project Maya and Basalt are included.
 
-Telemetrie für mehrere LLM-Server (Maya / Basalt / Strata) im LAN: Auslastung, VRAM, Leistung,
-Durchsatz, letzte Requests, Miner-Steuerung. Ein Python-Prozess ohne Abhängigkeiten (nur Standardbibliothek).
+Telemetry for several LLM servers on the LAN: load, VRAM, power, throughput, recent requests and
+optional GPU-miner control. A single Python process without dependencies (standard library only).
 
-## Neues System einrichten
+<p align="center">
+  <img src="docs/screenshot-desktop.png" alt="AIdashy – desktop view" width="78%">
+  <img src="docs/screenshot-mobile.png" alt="AIdashy – mobile view" width="20%">
+</p>
+
+## Setting up a new system
 
 ```bash
-git clone <repo> ~/tools/cluster-dashboard && cd ~/tools/cluster-dashboard
-python3 server.py            # legt config.json aus config.default.json an, läuft auf :8095
+git clone https://github.com/JDmotions/AIdashy.git ~/tools/cluster-dashboard && cd ~/tools/cluster-dashboard
+python3 server.py            # creates config.json from config.default.json, listens on :8095
 ```
 
-Dann im Browser `http://<rechner>:8095/config` öffnen und eintragen:
+Then open `http://<machine>:8095/config` in a browser and enter:
 
-- **Rechner** (IP, Name, Rolle) – Engines werden per Port-Scan (`scan_ports`) automatisch gefunden
-- **API-Keys** bzw. Key-Dateien der Engines
-- **Engines** (Name, Farbe, UI-Pfad je Diensttyp)
+- **Machines** (IP, name, role) – engines are found automatically by port scan (`scan_ports`)
+- **API keys** or key files of the engines
+- **Engines** (display name, colour, UI path per service type)
+- **Other engines (detection)** – which third-party engines to look for (see below)
 
-Alternativ eine exportierte Konfiguration über **⇧ Import** laden.
+Alternatively load an exported configuration via **⇧ Import**.
 
-### Als Dienst (systemd, Benutzer)
+### As a service (systemd, user)
 
 ```bash
 cp deploy/*.service ~/.config/systemd/user/
 systemctl --user daemon-reload
 systemctl --user enable --now cluster-dashboard.service
-loginctl enable-linger $USER          # läuft auch ohne Anmeldung
+loginctl enable-linger $USER          # keeps running without a login session
 ```
 
-### Zugriff von außen (optional)
+### Remote access (optional)
 
-1. Login anlegen: `python3 server.py --set-password BENUTZER`, Dienst neu starten
-2. `cloudflared` nach `bin/` legen ([Releases](https://github.com/cloudflare/cloudflared/releases))
-3. `systemctl --user enable --now cluster-dashboard-tunnel.service` – die URL steht in `tunnel.url`
-4. Optional Mail bei neuer URL: `tunnel.env` mit `MAIL_CMD=sendmail` und `MAIL_PREFIX="…"` anlegen
+1. Create a login: `python3 server.py --set-password USER`, then restart the service
+2. Put `cloudflared` into `bin/` ([releases](https://github.com/cloudflare/cloudflared/releases))
+3. `systemctl --user enable --now cluster-dashboard-tunnel.service` – the URL is written to `tunnel.url`
+4. Optional e-mail on a new URL: create `tunnel.env` with `MAIL_CMD=sendmail` and `MAIL_PREFIX="…"`
 
-Im LAN ist kein Login nötig, über den Tunnel immer.
+No login is needed on the LAN; via the tunnel it is always required.
 
-## Andere Engines
+## Other engines
 
-Neben den eigenen Engines (Maya, Basalt, Strata) erkennt das Dashboard beim Port-Scan diese
-Engines selbst und zeigt sie als eigene Karte (`engines.py`):
+Besides its own engines (Maya, Basalt, Strata) the dashboard detects these engines during the
+port scan and shows each as its own card (`engines.py`):
 
-| Engine | Erkennung | Was angezeigt wird | Voraussetzung |
+| Engine | Detected via | What is shown | Requirement |
 |---|---|---|---|
-| llama.cpp (`llama-server`) | `/props` | Modell, Kontext, Slots, laufende/wartende Requests, Prefill/Decode tok/s, Token-Summen | Raten und Summen nur mit `--metrics` |
-| vLLM | `/metrics` (`vllm:`) | laufend/wartend, KV-Cache %, Prefix-Cache-Treffer, TTFT Ø, tok/s, Token- und Request-Summen | – |
-| SGLang | `/get_server_info` | laufend/wartend, KV-Auslastung, Cache-Treffer, tok/s, TTFT | Metriken nur mit `--enable-metrics` |
-| Hugging Face TGI | `/info` | Batch/Queue, tok/s, Token-Summen, Ø Zeit pro Token | – |
-| TabbyAPI (ExLlama) | `/.well-known/serviceinfo` | wie llama.cpp, plus gecachte Prompt-Tokens | `/metrics` mit `network.enable_metrics: true`; API-Key in der Konfiguration |
-| Ollama | `/api/version` + `/api/tags` | geladene Modelle, Kontext, Quantisierung, VRAM | `OLLAMA_HOST=0.0.0.0` (sonst nur localhost); keine Durchsatzwerte |
-| LM Studio | `/api/v0/models` | geladenes Modell, Kontext, Quantisierung | Server „im lokalen Netz bereitstellen“; keine Durchsatzwerte |
-| KoboldCpp | `/api/extra/version` | Modell, Kontext, letzter Decode tok/s, Anzahl Generierungen | – |
-| NVIDIA Triton | `/v2` | Requests, Warteschlange, GPU-Werte (Metrik-Port 8002) | – |
-| Aphrodite | `/metrics` (`aphrodite:`) | wie vLLM | – |
-| jede OpenAI-API | `/v1/models` mit Modellen | Modellliste | – |
+| llama.cpp (`llama-server`) | `/props` | model, context, slots, running/deferred requests, prefill/decode tok/s, token totals | rates and totals only with `--metrics` |
+| vLLM | `/metrics` (`vllm:`) | running/waiting, KV cache %, prefix-cache hits, mean TTFT, tok/s, token and request totals | – |
+| SGLang | `/get_server_info` | running/queued, KV usage, cache hit rate, tok/s, TTFT | metrics only with `--enable-metrics` |
+| Hugging Face TGI | `/info` | batch/queue, tok/s, token totals, mean time per token | – |
+| TabbyAPI (ExLlama) | `/.well-known/serviceinfo` | like llama.cpp, plus cached prompt tokens | `/metrics` with `network.enable_metrics: true`; API key in the configuration |
+| Ollama | `/api/version` + `/api/tags` | loaded models, context, quantisation, VRAM | `OLLAMA_HOST=0.0.0.0` (otherwise localhost only); no throughput figures |
+| LM Studio | `/api/v0/models` | loaded model, context, quantisation | enable serving on the local network; no throughput figures |
+| KoboldCpp | `/api/extra/version` | model, context, last decode tok/s, number of generations | – |
+| NVIDIA Triton | `/v2` | requests, queue, GPU data (metrics port 8002) | – |
+| Aphrodite | `/metrics` (`aphrodite:`) | like vLLM | – |
+| any OpenAI API | `/v1/models` with models | model list | – |
 
-Standard-Ports dieser Engines in `scan_ports` aufnehmen, z. B.
-`1234,2242,5000-5001,8000-8002,8080-8099,11434,30000` (Standard in `config.default.json`).
-Ports ohne Engine werden `rediscover_s` Sekunden lang nicht erneut abgefragt.
+Which engines are searched for is set in the separate configuration step **Other engines
+(detection)** under `/config`: one checkbox per engine plus its ports (pre-filled with the default
+ports). The dashboard scans `scan_ports` (own engines) plus the ports of the ticked engines; if
+nothing is ticked, only the own engines are searched. In `config.json` this is the `engines` section.
 
-Die Tabelle beruht auf der Dokumentation der Engines. Echt getestet sind llama.cpp (`llama-server`)
-und LM Studio; die übrigen gegen nachgestellte Antworten im dokumentierten Format.
-Ollama und LM Studio haben keine Zähler – Durchsatz ließe sich dort nur über einen Proxy messen.
+- Ports that answer but are not an engine are not probed again for 10 minutes.
+- Gateways/proxies (`/health` with `backends`, or `service` containing gateway/proxy/router) and
+  OpenAI endpoints whose model is already served by a detected engine get no card of their own.
+- Discovery runs in the background and never holds up the display.
 
-### GPU-Werte für fremde Engines
+The table is based on the engines' documentation. Tested against real servers: llama.cpp
+(`llama-server`) and LM Studio; the others against replayed responses in the documented format.
+Ollama and LM Studio expose no counters – throughput could only be measured through a proxy.
 
-Fremde Engines melden keine Hardware. Das Dashboard übernimmt die Werte vom eigenen Engine-Server
-auf demselben Rechner (Hinweis „Hardware: Maya“ auf der Karte). Läuft dort keiner, liefert sie der
-GPU-Agent `bin/gpu-agent.py` (eine Datei, nur Standardbibliothek, braucht `nvidia-smi`):
+### GPU data for third-party engines
+
+Third-party engines report no hardware. The dashboard takes the values from an own engine server
+on the same machine (note "Hardware: Maya" on the card). If there is none, the GPU agent
+`bin/gpu-agent.py` provides them (single file, standard library only, needs `nvidia-smi`):
 
 ```bash
-python3 bin/gpu-agent.py --port 9835          # Linux und Windows
+python3 bin/gpu-agent.py --port 9835          # Linux and Windows
 cp deploy/gpu-agent.service ~/.config/systemd/user/ && systemctl --user enable --now gpu-agent.service
 ```
 
-Das Dashboard fragt ihn automatisch auf Port 9835 ab (`gpu_agent_port` in `config.json`).
-Unter Windows z. B. per geplanter Aufgabe `pythonw gpu-agent.py` bei der Anmeldung starten.
+The dashboard queries it automatically on port 9835 (`gpu_agent_port` in `config.json`).
+On Windows start `pythonw gpu-agent.py` at logon, e.g. with a scheduled task.
 
-## Sprachen
+## Languages
 
-Oberfläche, Konfiguration, Login und Server-Meldungen sind übersetzt (Deutsch, Englisch).
-Umschalter `🌐` oben; die Wahl wird im Browser gespeichert, `?lang=en` erzwingt eine Sprache.
-Ohne Wahl gilt die Browsersprache, sonst Englisch.
+UI, configuration, login and server messages are translated (German, English).
+Switch with `🌐` at the top; the choice is stored in the browser, `?lang=en` forces a language.
+Without a choice the browser language is used, otherwise English.
 
-Texte liegen in `i18n/<code>.json` (flach, `"schluessel": "Text mit {platzhalter}"`).
-Neue Sprache: `i18n/en.json` kopieren, z. B. nach `i18n/fr.json`, `_meta.name`/`_meta.locale`
-anpassen und übersetzen – sie erscheint automatisch im Umschalter. Fehlende Schlüssel fallen auf Englisch zurück.
+Texts live in `i18n/<code>.json` (flat, `"key": "Text with {placeholder}"`).
+New language: copy `i18n/en.json`, e.g. to `i18n/fr.json`, adjust `_meta.name`/`_meta.locale`
+and translate – it appears in the switcher automatically. Missing keys fall back to English.
 
-## Konfiguration exportieren
+## Exporting the configuration
 
-Unter `/config`:
+Under `/config`:
 
-| Button | Inhalt |
+| Button | Contents |
 |---|---|
-| ⇩ Export | alles außer API-Keys und Login – zum Weitergeben oder als Vorlage |
-| ⇩ Export + Geheimnisse | vollständig inkl. Keys und Passwort-Hash – nur im LAN, wie ein Passwort behandeln |
-| ⇧ Import | übernimmt eine Export-Datei; fehlende Keys bleiben erhalten, der Login wird nie überschrieben, Miner-Befehle nur aus dem LAN |
+| ⇩ Export | everything except API keys and login – to share or use as a template |
+| ⇩ Export + secrets | complete incl. keys and password hash – LAN only, treat it like a password |
+| ⇧ Import | applies an export file; missing keys are kept, the login is never overwritten, miner commands only from the LAN |
 
-SSH-Schlüssel (`keys/`) sind in keinem Export enthalten und müssen separat kopiert werden.
+SSH keys (`keys/`) are never part of an export and must be copied separately.
 
-## Miner-Steuerung (optional)
+## Miner control (optional)
 
-Das Dashboard kann pro Rechner einen GPU-Miner anzeigen (Hashrate, Shares, Temperatur) und per
-Schalter starten/stoppen. Vorgesehen ist SRBMiner-MULTI mit eingeschalteter API
-(`--api-enable --api-port 21550`); andere Miner funktionieren, solange sich Start, Stopp und Status
-per Befehl abbilden lassen.
+The dashboard can show one GPU miner per machine (hashrate, shares, temperature) and start/stop it
+with a switch. It is designed for SRBMiner-MULTI with its API enabled
+(`--api-enable --api-port 21550`); other miners work as long as start, stop and status can be
+expressed as commands.
 
-Die Miner stehen im Abschnitt `miners` der `config.json` (nicht über die Weboberfläche, weil
-die Einträge Befehle ausführen). Schlüssel ist die IP aus `machines`.
+Miners are configured in the `miners` section of `config.json` (not in the web UI, because these
+entries execute commands). The key is the IP from `machines`.
 
-### Linux-Rechner, auf dem das Dashboard läuft (`kind: systemd`)
+### Linux machine running the dashboard (`kind: systemd`)
 
 ```json
 "miners": {
@@ -119,14 +133,14 @@ die Einträge Befehle ausführen). Schlüssel ist die IP aus `machines`.
 }
 ```
 
-1. Miner als systemd-Unit einrichten: Vorlage `deploy/miner/linux/miner.service.example`.
-   Als normaler Benutzer (`User=`) laufen lassen – dann kann ein Proxy wie miner-gate ihn per
-   SIGSTOP pausieren, und das Dashboard zeigt „pausiert“.
-2. Dashboard-Benutzer darf genau diese Unit schalten: `deploy/miner/linux/sudoers.example`
-   nach `/etc/sudoers.d/` (mit `visudo -f`). Das Dashboard ruft `sudo -n /usr/bin/systemctl start|stop <unit>`.
-3. Status kommt aus der Miner-API (`api`) und `systemctl is-active`.
+1. Set the miner up as a systemd unit: template `deploy/miner/linux/miner.service.example`.
+   Run it as a normal user (`User=`) – then a proxy such as miner-gate can pause it with SIGSTOP,
+   and the dashboard shows "paused".
+2. Allow the dashboard user to switch exactly this unit: `deploy/miner/linux/sudoers.example`
+   into `/etc/sudoers.d/` (with `visudo -f`). The dashboard calls `sudo -n /usr/bin/systemctl start|stop <unit>`.
+3. Status comes from the miner API (`api`) and `systemctl is-active`.
 
-### Entfernte Rechner per SSH (`kind: ssh`, Windows oder Linux)
+### Remote machines via SSH (`kind: ssh`, Windows or Linux)
 
 ```json
 "miners": {
@@ -140,25 +154,24 @@ die Einträge Befehle ausführen). Schlüssel ist die IP aus `machines`.
 }
 ```
 
-- **SSH-Zugang:** Schlüsselpaar erzeugen (`ssh-keygen -t ed25519 -f keys/miner_ed25519 -N ""`),
-  den öffentlichen Teil auf dem Zielrechner eintragen. Windows: OpenSSH-Server aktivieren
-  (Einstellungen → Optionale Features), Schlüssel in `C:\Users\<user>\.ssh\authorized_keys`, bei
-  Administratoren stattdessen in `C:\ProgramData\ssh\administrators_authorized_keys`.
-- **Befehle** laufen unter Windows in `cmd.exe`. `status` muss den Prozessnamen (`process`)
-  ausgeben, wenn der Miner läuft; folgt danach JSON der Miner-API, zeigt das Dashboard Hashrate und Shares.
-- **Start über eine geplante Aufgabe:** GPU-Miner müssen in der angemeldeten Benutzersitzung
-  laufen, nicht in der SSH-Sitzung. Deshalb startet `start` eine Aufgabe (`schtasks /run`), die
-  „nur ausführen, wenn der Benutzer angemeldet ist“ eingestellt ist. Anlegen mit
-  `deploy/miner/windows/install-miner-tasks.ps1` (siehe unten).
-- **Pausen-Datei:** `stop` legt `paused.flag` an, `start` löscht sie. Daran erkennt der Watchdog,
-  dass der Miner absichtlich aus ist (Dashboard-Schalter oder miner-gate), und startet ihn nicht neu.
+- **SSH access:** create a key pair (`ssh-keygen -t ed25519 -f keys/miner_ed25519 -N ""`) and add the
+  public part on the target. Windows: enable the OpenSSH server (Settings → Optional features), put
+  the key into `C:\Users\<user>\.ssh\authorized_keys`, for administrators into
+  `C:\ProgramData\ssh\administrators_authorized_keys` instead.
+- **Commands** run in `cmd.exe` on Windows. `status` must print the process name (`process`) while
+  the miner runs; if JSON from the miner API follows, the dashboard shows hashrate and shares.
+- **Start via a scheduled task:** GPU miners must run in the logged-in user session, not in the SSH
+  session. That is why `start` triggers a task (`schtasks /run`) set to "run only when the user is
+  logged on". Create it with `deploy/miner/windows/install-miner-tasks.ps1` (see below).
+- **Pause file:** `stop` creates `paused.flag`, `start` deletes it. This tells the watchdog that the
+  miner is off on purpose (dashboard switch or miner-gate), so it does not restart it.
 
-`"enabled": false` und `"note": "…"` blenden einen Miner aus bzw. zeigen einen Hinweis statt des Schalters.
+`"enabled": false` and `"note": "…"` hide a miner or show a note instead of the switch.
 
 ### Watchdogs
 
-Ein Watchdog startet den Miner neu, wenn er abstürzt oder hängt (Prozess läuft, aber API stumm
-oder Hashrate 0). Er lässt den Miner in Ruhe, wenn er absichtlich gestoppt oder pausiert ist.
+A watchdog restarts the miner when it crashes or hangs (process running, but API silent or hashrate
+0). It leaves the miner alone when it was stopped or paused on purpose.
 
 **Linux** (`deploy/miner/linux/`):
 
@@ -166,15 +179,15 @@ oder Hashrate 0). Er lässt den Miner in Ruhe, wenn er absichtlich gestoppt oder
 sudo install -m 755 miner-watchdog.sh /usr/local/sbin/
 sudo cp miner-watchdog.service miner-watchdog.timer /etc/systemd/system/
 sudo systemctl daemon-reload && sudo systemctl enable --now miner-watchdog.timer
-journalctl -t miner-watchdog          # was er getan hat
+journalctl -t miner-watchdog          # what it did
 ```
 
-- Abstürze fängt schon `Restart=on-failure` der Miner-Unit ab; der Timer prüft alle 2 min die API.
-- Neustart nach 3 schlechten Prüfungen in Folge, nicht in den ersten 180 s nach dem Start.
-- Keine Aktion, wenn die Unit gestoppt ist, der Prozess pausiert ist (SIGSTOP) oder `/run/miner.paused` existiert.
-- Einstellbar über `Environment=` in `miner-watchdog.service`: `UNIT`, `API`, `GRACE`, `MAX_BAD`, `PAUSE_FLAG`.
+- Crashes are already handled by `Restart=on-failure` of the miner unit; the timer checks the API every 2 min.
+- Restart after 3 bad checks in a row, never within the first 180 s after a start.
+- No action if the unit is stopped, the process is paused (SIGSTOP) or `/run/miner.paused` exists.
+- Tunable via `Environment=` in `miner-watchdog.service`: `UNIT`, `API`, `GRACE`, `MAX_BAD`, `PAUSE_FLAG`.
 
-**Windows** (`deploy/miner/windows/`, PowerShell als Administrator, als der Benutzer, unter dem der Miner laufen soll):
+**Windows** (`deploy/miner/windows/`, PowerShell as administrator, as the user the miner should run as):
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File install-miner-tasks.ps1 `
@@ -182,25 +195,26 @@ powershell -ExecutionPolicy Bypass -File install-miner-tasks.ps1 `
   -MinerArgs "--algorithm <algo> --pool <pool:port> --wallet <wallet> --api-enable --api-port 21550"
 ```
 
-- Legt `MinerStart` an (bei Anmeldung, in der Benutzersitzung, Neustart bei Fehler, nie doppelt)
-  und `MinerWatchdog` (alle 2 min, unsichtbar).
-- Statt der exe kann `-MinerExe` auch ein eigenes Start-Programm oder eine `.bat` sein.
-- Watchdog: startet `MinerStart`, wenn der Prozess fehlt; beendet und startet neu nach 3
-  Prüfungen ohne Hashrate. Nichts, solange `C:\ProgramData\miner\paused.flag` existiert.
-  Protokoll: `C:\ProgramData\miner\watchdog.log`.
-- Damit der Miner nach einem Neustart des PCs ohne Eingriff läuft, braucht Windows eine
-  automatische Anmeldung (z. B. Sysinternals Autologon) – sonst startet `MinerStart` erst bei der Anmeldung.
+- Creates `MinerStart` (at logon, in the user session, restart on failure, never twice) and
+  `MinerWatchdog` (every 2 min, hidden).
+- Instead of the exe, `-MinerExe` can also be your own launcher or a `.bat`.
+- Watchdog: starts `MinerStart` if the process is missing; kills and restarts after 3 checks without
+  hashrate. Does nothing while `C:\ProgramData\miner\paused.flag` exists.
+  Log: `C:\ProgramData\miner\watchdog.log`.
+- For the miner to run after a reboot without intervention, Windows needs automatic logon
+  (e.g. Sysinternals Autologon) – otherwise `MinerStart` only runs once someone logs on.
 
-> Die Windows-Skripte sind nicht auf einem Windows-Rechner getestet worden; vor dem
-> Produktiveinsatz einmal von Hand prüfen (`schtasks /query /tn MinerWatchdog`, Log ansehen).
+> The Windows scripts have not been tested on a Windows machine yet; check them by hand before
+> production use (`schtasks /query /tn MinerWatchdog`, look at the log).
 
-## Grenzen
+## Limits
 
-- Rechner werden parallel abgefragt (bis 64 gleichzeitig), ein Durchlauf dauert so lange wie der
-  langsamste Rechner. Das Ergebnis wird kurz zwischengespeichert, mehrere offene Browser kosten
-  keine zusätzlichen Abfragen.
-- Übersichtlich bis etwa 10–12 Engines; technisch sind ~50 möglich (Datenmenge ~4 KiB pro Engine und Abfrage).
+- Machines are polled in parallel (up to 64 at once); one round takes as long as the slowest
+  machine. The result is cached briefly, so several open browsers cause no extra queries.
+- Two configuration pages open at the same time do not overwrite each other: the server rejects
+  saving an outdated state. Changes are logged to `config-changes.log`.
+- Comfortable up to about 10–12 engines; technically ~50 are possible (~4 KiB per engine and poll).
 
-## Lizenz
+## License
 
-MIT – siehe [LICENSE](LICENSE).
+MIT – see [LICENSE](LICENSE).

@@ -1,10 +1,10 @@
-# Beispiel-Unit fuer einen GPU-Miner (SRBMiner-MULTI) unter Linux.
-# Kopieren nach /etc/systemd/system/miner.service, Platzhalter <...> ersetzen, dann:
+# Example unit for a GPU miner (SRBMiner-MULTI) on Linux.
+# Copy to /etc/systemd/system/miner.service, replace the <...> placeholders, then:
 #   sudo systemctl daemon-reload && sudo systemctl enable --now miner.service
 #
-# Restart=on-failure: systemd startet neu, wenn der Prozess abstuerzt.
-# Ein bewusstes `systemctl stop` (Dashboard-Schalter) wird NICHT rueckgaengig gemacht.
-# Haenger ohne Absturz (Hashrate 0) faengt miner-watchdog.timer ab.
+# Restart=on-failure: systemd restarts the process when it crashes.
+# A deliberate `systemctl stop` (dashboard switch) is NOT undone.
+# Hangs without a crash (hashrate 0) are caught by miner-watchdog.timer.
 
 [Unit]
 Description=GPU miner (SRBMiner-MULTI)
@@ -15,20 +15,20 @@ StartLimitBurst=5
 
 [Service]
 Type=simple
-# Als normaler Benutzer: dann kann ein Proxy (miner-gate) den Prozess per SIGSTOP/SIGCONT pausieren.
-User=<benutzer>
-Group=<benutzer>
-WorkingDirectory=<pfad-zum-miner>
-ExecStart=<pfad-zum-miner>/SRBMiner-MULTI \
+# As a normal user: then a proxy (miner-gate) can pause the process with SIGSTOP/SIGCONT.
+User=<user>
+Group=<user>
+WorkingDirectory=<path-to-miner>
+ExecStart=<path-to-miner>/SRBMiner-MULTI \
   --algorithm <algo> --pool <pool:port> --wallet <wallet> --worker <name> --password x \
   --disable-cpu --gpu-id 0 \
   --api-enable --api-port 21550 \
   --max-no-share-sent 900 \
   --gpu-off-temperature 82 --shutdown-temperature 90 \
-  --log-file <pfad-zum-miner>/logs/miner.log --log-file-mode 1
+  --log-file <path-to-miner>/logs/miner.log --log-file-mode 1
 Restart=on-failure
 RestartSec=15
-# SRBMiner beendet sich sauber auf SIGTERM; danach hart
+# SRBMiner exits cleanly on SIGTERM; hard kill after the timeout
 KillSignal=SIGTERM
 TimeoutStopSec=20
 Nice=5

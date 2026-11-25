@@ -1,13 +1,13 @@
 #!/usr/bin/env python3
-"""GPU-Agent fuer das Cluster-Dashboard (nur Standardbibliothek, Linux und Windows).
+"""GPU agent for the cluster dashboard (standard library only, Linux and Windows).
 
-Fuer Rechner, auf denen eine fremde Engine laeuft (llama.cpp, vLLM, Ollama ...), die selbst keine
-GPU-Werte meldet. Liefert GET /gpu als JSON: GPUs (nvidia-smi), CPU-Last und RAM.
-Das Dashboard fragt ihn automatisch auf Port 9835 ab (config.json: gpu_agent_port).
+For machines running a third-party engine (llama.cpp, vLLM, Ollama ...) that reports no GPU data
+itself. Serves GET /gpu as JSON: GPUs (nvidia-smi), CPU load and RAM.
+The dashboard queries it automatically on port 9835 (config.json: gpu_agent_port).
 
   python3 gpu-agent.py [--port 9835] [--bind 0.0.0.0]
 
-Nur lesend, keine Steuerung. Im LAN betreiben (keine Authentifizierung).
+Read-only, no control. Run it on the LAN only (no authentication).
 """
 import argparse
 import json
@@ -147,6 +147,6 @@ if __name__ == "__main__":
     ap.add_argument("--bind", default="0.0.0.0")
     a = ap.parse_args()
     if platform.system() == "Linux":
-        cpu_linux()                       # erste Messung als Basis
+        cpu_linux()                       # first sample as baseline
     print(f"gpu-agent auf :{a.port}", flush=True)
     ThreadingHTTPServer((a.bind, a.port), H).serve_forever()

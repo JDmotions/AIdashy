@@ -1,12 +1,12 @@
-"""Adapter fuer fremde Inferenz-Engines (nur Standardbibliothek).
+"""Adapters for third-party inference engines (standard library only).
 
-Jede Engine wird beim Port-Scan erkannt (detect) und bei jeder Abfrage in dasselbe Node-Format
-uebersetzt, das die eigenen Engines (Maya/Basalt/Strata) liefern (poll). Prometheus-Zaehler werden
-zwischen zwei Abfragen zu Raten (tok/s); ein fallender Zaehler bedeutet Neustart der Engine.
+Each engine is detected during the port scan (detect) and on every query translated into the same
+node format that our own engines (Maya/Basalt/Strata) provide (poll). Prometheus counters become
+rates (tok/s) between two queries; a decreasing counter means the engine restarted.
 
-Unterstuetzt: llama.cpp (llama-server), vLLM, SGLang, Hugging Face TGI, TabbyAPI, Ollama, LM Studio,
-KoboldCpp, NVIDIA Triton, Aphrodite (vLLM-artig) und als Rueckfall jede OpenAI-kompatible API (/v1/models).
-Quellen der Endpunkte und Metriknamen: siehe README, Abschnitt "Andere Engines".
+Supported: llama.cpp (llama-server), vLLM, SGLang, Hugging Face TGI, TabbyAPI, Ollama, LM Studio,
+KoboldCpp, NVIDIA Triton, Aphrodite (vLLM-like) and, as a fallback, any OpenAI-compatible API (/v1/models).
+Sources for endpoints and metric names: see README, section "Other engines".
 """
 import json
 import re
@@ -19,7 +19,7 @@ from os.path import basename
 
 TIMEOUT = 1.5
 
-# Anzeige, wenn in config.json -> services nichts eingetragen ist
+# display name if nothing is set in config.json -> services
 DEFAULTS = {
     "llamacpp": ("llama.cpp", "#f59e0b", "/"),
     "vllm": ("vLLM", "#60a5fa", "/docs"),
@@ -35,7 +35,7 @@ DEFAULTS = {
 }
 
 
-# Standard-Ports der Engines (Vorbelegung im Konfig-Schritt "Andere Engines")
+# default ports of the engines (prefill for the config step "Other engines")
 PORTS = {
     "llamacpp": "8080-8099", "vllm": "8000", "sglang": "30000", "tgi": "3000,8080", "tabbyapi": "5000",
     "ollama": "11434", "lmstudio": "1234", "koboldcpp": "5001", "triton": "8000", "aphrodite": "2242",
@@ -55,7 +55,7 @@ def _get(base, path, key=None, raw=False, timeout=TIMEOUT):
 
 
 def get_any(base, path, keys, raw=False, timeout=TIMEOUT):
-    """Erst ohne Key, bei 401/403 der Reihe nach mit den Keys. -> (Antwort, benutzter Key)."""
+    """First without a key, on 401/403 try the keys in order. -> (response, key used)."""
     last = None
     for k in [None] + list(keys or []):
         try:
@@ -81,7 +81,7 @@ _LABEL = re.compile(r'(\w+)="((?:[^"\\]|\\.)*)"')
 
 
 def parse_prom(text):
-    """{name: [(labels_dict, value), ...]} - nur Werte, keine Typen."""
+    """{name: [(labels_dict, value), ...]} - values only, no types."""
     out = {}
     for ln in (text or "").splitlines():
         if not ln or ln[0] == "#":
@@ -100,7 +100,7 @@ def parse_prom(text):
 
 
 def psum(P, *names):
-    """Summe ueber alle Label-Kombinationen der ersten vorhandenen Metrik."""
+    """Sum over all label combinations of the first metric present."""
     for n in names:
         if n in P:
             return sum(v for _, v in P[n])
@@ -116,12 +116,12 @@ def plabel(P, label, *names):
 
 
 def pmean(P, base):
-    """Mittelwert eines Histogramms/Summary seit Start: _sum/_count."""
+    """Mean of a histogram/summary since start: _sum/_count."""
     s, c = psum(P, base + "_sum"), psum(P, base + "_count")
     return s / c if s is not None and c else None
 
 
-# ------------------------------------------------------------------ Raten + Verlauf
+# ------------------------------------------------------------------ Rates + history
 _STATE = {}
 _HIST = {}
 _LOCK = threading.Lock()
@@ -129,11 +129,11 @@ HIST_KEYS = ("tok_s", "prefill", "cpu", "gpu_util", "gpu_temp", "gpu_power")
 
 
 def rates(node_id, counters):
-    """Raten pro Sekunde seit der letzten Abfrage; Zaehler-Ruecksprung = Neustart -> keine Rate."""
+    """Per-second rates since the last query; counter reset = restart -> no rate."""
     now = time.time()
     with _LOCK:
         prev = _STATE.get(node_id)
-        if prev and now - prev["t"] < 0.8:          # mehrfacher Aufruf kurz hintereinander
+        if prev and now - prev["t"] < 0.8:          # repeated call in quick succession
             return prev.get("r", {})
         r = {}
         if prev:
@@ -155,7 +155,7 @@ def push_hist(node_id, **vals):
         return {k: list(v) for k, v in h.items()}
 
 
-# ------------------------------------------------------------------ leeres Node-Geruest
+# ------------------------------------------------------------------ empty node skeleton
 def blank(pub, engine=None):
     return {
         "id": pub["id"], "name": pub["name"], "role": pub.get("role"), "host": pub.get("host"),
@@ -182,7 +182,7 @@ def blank(pub, engine=None):
 
 
 def _finish(d, busy, dec_rate, pf_rate=None):
-    """Live-Zustand, Verlauf und beobachtete Peaks setzen."""
+    """Set live state, history and observed peaks."""
     d["state"] = "busy" if busy else "idle"
     d["phase"] = "decode" if busy and dec_rate else ("prefill" if busy else None)
     d["live_tok_s"] = dec_rate if busy and dec_rate else None
@@ -207,7 +207,7 @@ def _counter_totals(d, prompt, output, requests=None, p_sec=None, o_sec=None, re
 
 # ------------------------------------------------------------------ Engines
 def _prom_family(d, P, srv, pre):
-    """llama.cpp und TabbyAPI teilen sich dieses Zaehlerschema (Praefix llamacpp: / tabbyapi:)."""
+    """llama.cpp and TabbyAPI share this counter scheme (prefix llamacpp: / tabbyapi:)."""
     pt, gen = psum(P, pre + "prompt_tokens_total"), psum(P, pre + "tokens_predicted_total")
     ps, gs = psum(P, pre + "prompt_seconds_total"), psum(P, pre + "tokens_predicted_seconds_total")
     cached = psum(P, pre + "prompt_tokens_cached_total")
@@ -217,7 +217,7 @@ def _prom_family(d, P, srv, pre):
     if off:
         d["totals"].update(drafts_offered=off, drafts_accepted=acc, draft_acc_pct=(acc or 0) / off * 100)
     r = rates(d["id"], {"gen": gen, "pt": pt, "gs": gs, "ps": ps})
-    # reine Rechen-Rate (Tokens pro Rechensekunde) statt Wanduhr-Rate, wenn verfuegbar
+    # pure compute rate (tokens per compute second) instead of wall-clock rate, if available
     dec = r["gen"] / r["gs"] if r.get("gs") else r.get("gen")
     pf = r["pt"] / r["ps"] if r.get("ps") else r.get("pt")
     running = psum(P, pre + "requests_processing") or 0
@@ -232,7 +232,7 @@ def poll_llamacpp(srv, pub):
     dgs = props.get("default_generation_settings") or {}
     d["context"] = dgs.get("n_ctx") or props.get("n_ctx")
     name = str(props.get("model_alias") or props.get("model_path") or "")
-    d["model"] = basename(name.replace("\\", "/")) or None          # Alias ist oft der volle Pfad
+    d["model"] = basename(name.replace("\\", "/")) or None          # alias is often the full path
     if props.get("build_info"):
         d["engine"] = "llama.cpp " + str(props["build_info"])
     slots, _ = _try(u, "/slots", [k] if k else [])
@@ -391,7 +391,7 @@ def poll_ollama(srv, pub):
         vram = sum((m.get("size_vram") or 0) for m in models)
         d["speculation"] = [f"VRAM {vram / 2**30:.1f} GiB"] if vram else []
         d["state"] = "loaded"
-    # Ollama hat keine Zaehler (kein /metrics) - Durchsatz nur ueber einen Proxy messbar
+    # Ollama has no counters (no /metrics) - throughput only measurable via a proxy
     _finish(d, False, None)
     d["state"] = "loaded" if models else "idle"
     return d
@@ -480,11 +480,11 @@ POLL = {"llamacpp": poll_llamacpp, "vllm": poll_vllm, "sglang": poll_sglang, "tg
         "koboldcpp": poll_koboldcpp, "triton": poll_triton, "aphrodite": poll_aphrodite, "openai": poll_openai}
 
 
-# ------------------------------------------------------------------ Erkennung
+# ------------------------------------------------------------------ Detection
 def detect(base, keys, allowed=None):
-    """Welche Engine laeuft unter base? -> (service, key) oder None. Nur GET-Anfragen, kurze Timeouts.
-    allowed: Menge eingeschalteter Engines (None = alle). Reihenfolge: eindeutige Endpunkte zuerst,
-    Metrik-Praefix und /v1/models zuletzt."""
+    """Which engine runs at base? -> (service, key) or None. GET requests only, short timeouts.
+    allowed: set of enabled engines (None = all). Order: unambiguous endpoints first,
+    metric prefix and /v1/models last."""
     on = (lambda svc: True) if allowed is None else (lambda svc: svc in allowed)
     if allowed is not None and not allowed:
         return None
@@ -527,7 +527,7 @@ def detect(base, keys, allowed=None):
             if on(svc) and re.search(r"^" + re.escape(prefix), text, re.M):
                 return svc, k
     v, k = j("/v1/models") if on("openai") else (None, None)
-    # Rueckfall nur mit mindestens einem Modell - Gateways/Proxys mit leerer Liste sind keine Engine
+    # fallback only with at least one model - gateways/proxies with an empty list are not an engine
     if isinstance(v, dict) and v.get("object") == "list" and isinstance(v.get("data"), list) and v["data"]:
         return "openai", k
     return None

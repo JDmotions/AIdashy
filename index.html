@@ -90,11 +90,11 @@ button:hover{color:var(--ink);border-color:var(--accent)}
 .sw.on{background:var(--warn)} .sw.on::after{left:21px}
 .sw.pend{opacity:.55;cursor:wait} .sw:disabled{opacity:.35;cursor:not-allowed}
 .foot{color:var(--muted);font-size:11.5px;margin-top:14px}
-/* ---- Kopfleiste einklappbar + Auto-Ausblenden beim Scrollen ---- */
+/* ---- Collapsible header + auto-hide on scroll ---- */
 header{transition:transform .25s ease}
 .hdtog{display:none;margin-left:auto;padding:4px 10px;font-size:13px;line-height:1}
 #kpiCard{display:none}
-/* ---- Hochformat / Smartphone ---- */
+/* ---- Portrait / smartphone ---- */
 @media (max-width:640px), (orientation:landscape) and (max-height:500px) and (pointer:coarse){
   body.hd-min .kpis,body.hd-min .btns{display:none}
   body.hd-hide header{transform:translateY(-110%)}
@@ -123,12 +123,12 @@ header{transition:transform .25s ease}
   #cmp td:first-child{width:34%}
   #reqs td,#reqs th{white-space:nowrap}
   #reqs tr>*:nth-child(5),#reqs tr>*:nth-child(7),#reqs tr>*:nth-child(9),#reqs tr>*:nth-child(10){display:none}
-  /* ---- Tab-Layout (nur Handy, nicht bei ?alle=1) ---- */
+  /* ---- Tab layout (phone only, not with ?alle=1) ---- */
   body.tabbed .tab-off{display:none!important}
   body.tabbed #total{margin-bottom:0!important}
   body.tabbed .wide{margin-top:0}
   body.tabbed main{padding-bottom:calc(78px + env(safe-area-inset-bottom))}
-  /* Kennzahlen im Tab-Layout als mitscrollende Karte auf der Uebersicht, nicht im klebenden Header */
+  /* Key figures in the tab layout as a scrolling card on the overview, not in the sticky header */
   body.tabbed header .kpis{display:none!important}
   body.tabbed.tab-ov #kpiCard{display:block;margin-bottom:10px}
   #kpiCard .kpis{display:grid;width:100%}
@@ -150,13 +150,13 @@ header{transition:transform .25s ease}
   @keyframes tabpulse{70%{box-shadow:0 0 0 6px transparent}100%{box-shadow:0 0 0 0 transparent}}
   body.th-grad #tabs,body.th-img #tabs{background:linear-gradient(rgba(255,255,255,.06),rgba(255,255,255,.03)),rgba(16,6,30,.55)}
 }
-/* Palmen nur im Hochformat zur Bildmitte holen (Szene wird dort seitlich abgeschnitten) */
+/* Move palms toward the center only in portrait (the scene is cropped at the sides there) */
 @media (max-width:640px){
   #vice .pl1{transform:translate(540px,200px) scale(.75)}
   #vice .pr1{transform:translate(1060px,200px) scale(-.75,.75)}
   #vice .pl2,#vice .pr2{display:none}
 }
-/* ---- Querformat-Handy: Breite nutzen, Hoehe sparen ---- */
+/* ---- Landscape phone: use the width, save height ---- */
 @media (orientation:landscape) and (max-height:500px) and (pointer:coarse){
   header{padding:calc(4px + env(safe-area-inset-top)) max(12px,env(safe-area-inset-right)) 4px max(12px,env(safe-area-inset-left))}
   main{padding-left:max(10px,env(safe-area-inset-left));padding-right:max(10px,env(safe-area-inset-right))}
@@ -169,7 +169,7 @@ header{transition:transform .25s ease}
   body.tabbed #tabs{padding:3px max(8px,env(safe-area-inset-left)) calc(3px + env(safe-area-inset-bottom))}
   #tabs button{flex-direction:row;justify-content:center;gap:6px;padding:7px 4px}
 }
-/* ---- Vice-Themes: body.th-grad (Verlauf) / body.th-img (Bild) ---- */
+/* ---- Vice themes: body.th-grad (gradient) / body.th-img (image) ---- */
 body.th-grad,body.th-img{--card:rgba(24,12,40,.62);--inset:rgba(18,10,30,.55);--line:rgba(255,80,170,.2);--accent:#ff2d95;--accent-t:#ff9ccf}
 body.th-grad::before,body.th-img::before{content:"";position:fixed;inset:0;z-index:-2;pointer-events:none}
 body.th-grad::before,body.th-img::before{background:
@@ -181,7 +181,7 @@ body.th-grad::before,body.th-img::before{background:
 #vice svg{width:100%;height:100%}
 body.th-img #vice{display:block}
 body.th-grad,body.th-img{background:#120a24}
-/* Milchglas */
+/* Frosted glass */
 body.th-grad,body.th-img{--card:rgba(255,255,255,.07);--inset:rgba(255,255,255,.05);--fill:rgba(255,255,255,.09);--track:rgba(255,255,255,.12);
   --line:rgba(255,255,255,.14);--line2:rgba(255,255,255,.22);--side:rgba(20,8,36,.35)}
 body.th-grad .card,body.th-img .card{background:linear-gradient(160deg,rgba(255,255,255,.10),rgba(255,255,255,.03) 60%),rgba(16,5,32,.5);
@@ -249,7 +249,7 @@ const esc=s=>String(s??"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&g
 const n=(v,d=0)=>v==null||isNaN(v)?"–":Number(v).toLocaleString(I18N.locale,{maximumFractionDigits:d,minimumFractionDigits:d});
 const big=v=>v==null?"–":v>=1e9?n(v/1e9,2)+" G":v>=1e6?n(v/1e6,1)+" M":v>=1e3?n(v/1e3,1)+" k":n(v);
 const gib=b=>b==null?"–":n(b/2**30,1);
-const mx=a=>a.length?Math.max(...a):null;   // Math.max ueber leere Liste waere -Infinity
+const mx=a=>a.length?Math.max(...a):null;   // Math.max over an empty list would be -Infinity
 const pct=(a,b)=>b?Math.max(0,Math.min(100,a/b*100)):0;
 const dur=s=>{if(s==null)return"–";s=Math.floor(s);const d=Math.floor(s/86400),h=Math.floor(s%86400/3600),m=Math.floor(s%3600/60);return d?`${d}d ${h}h`:h?`${h}h ${m}m`:`${m}m`};
 const ago=x=>x?t("time.ago",{d:dur(Date.now()/1000-x)}):"–";
@@ -264,11 +264,13 @@ function spark(arr,color,max){
 }
 function sp(t,val,arr,c,max){return `<div class="sp"><div class="t">${t}<b>${val}</b></div>${spark(arr,c,max)}</div>`}
 const QP=new URLSearchParams(location.search);
-let HIDE=QP.has("hideip")?QP.get("hideip")==="1":localStorage.getItem('cd_hide_ip')==='1';
+const DEMO=QP.has("demo");   // neutral screenshots: IPs masked, miner info and logout link hidden
+let HIDE=DEMO||(QP.has("hideip")?QP.get("hideip")==="1":localStorage.getItem('cd_hide_ip')==='1');
 const ip=h=>HIDE?'•••.•••.•.'+String(h||'').split('.').pop().replace(/./g,'•'):esc(h);
 const hps=v=>{if(v==null)return"–";const u=["H/s","kH/s","MH/s","GH/s","TH/s","PH/s"];let i=0;while(v>=1000&&i<u.length-1){v/=1000;i++}return n(v,2)+" "+u[i]};
 let SHOWN_MINER=new Set();
 function minerBox(host){
+  if(DEMO) return "";
   const m=LAST?.miners?.[host]; if(!m||SHOWN_MINER.has(host)) return ""; SHOWN_MINER.add(host);
   const pend=m.pending, on=pend?pend==="start":!!m.running;
   const info=!m.available?esc(m.note_code?t(m.note_code):m.note||t("miner.na")):pend?(pend==="start"?t("miner.starting"):t("miner.stopping")):m.running?
@@ -298,7 +300,7 @@ function card(d){
   <div class="model">${esc(d.model_label||d.model)}</div>
   <div class="chips">${chips.map(x=>`<span class="chip">${esc(x)}</span>`).join("")}</div>
   ${minerBox(d.host)}
-  ${!busy&&!d.hw_source&&d.gpus.some(g=>(g.util||0)>50)?`<div class="err" style="color:var(--warn);background:rgba(251,191,36,.1);margin:8px 0 0">${t("warn.idle_load",{util:n(mx(d.gpus.map(g=>g.util||0))),w:n(d.gpus.reduce((a,g)=>a+(g.power||0),0)),cause:LAST?.miners?.[d.host]?.running?t("warn.miner"):t("warn.foreign")})}</div>`:""}
+  ${!DEMO&&!busy&&!d.hw_source&&d.gpus.some(g=>(g.util||0)>50)?`<div class="err" style="color:var(--warn);background:rgba(251,191,36,.1);margin:8px 0 0">${t("warn.idle_load",{util:n(mx(d.gpus.map(g=>g.util||0))),w:n(d.gpus.reduce((a,g)=>a+(g.power||0),0)),cause:LAST?.miners?.[d.host]?.running?t("warn.miner"):t("warn.foreign")})}</div>`:""}
   <div class="live"><div class="big">${busy&&d.live_tok_s?n(d.live_tok_s,1):busy&&d.live_prefill?big(d.live_prefill):"–"} <small>${busy&&!d.live_tok_s&&d.live_prefill?t("live.prefill_unit"):"tok/s"}</small></div><div class="sub">${liveTxt}${d.queued?` · <b style="color:var(--warn)">${t("live.queued",{n:d.queued})}</b>`:""}</div></div>
   ${d.gpus.length?"":`<div class="sec">${t("sec.gpu")}</div><div class="sub">${t("node.no_gpu")}</div>`}<div class="sec" style="${d.gpus.length?"":"display:none"}">${d.gpus.length>1?t("sec.gpus"):t("sec.gpu")} <span class="scope">${d.hw_source?t("node.hw_from",{src:esc(d.hw_source)})+" · ":""}${gib(vramU)}/${gib(vramT)} GiB · ${n(powU)} W${powL?` / ${n(powL)} W`:""}</span></div>`;
   for(const g of d.gpus){
@@ -386,7 +388,7 @@ function requests(nodes){
 }
 
 function totals(nodes){
-  // pro Rechner einmal zaehlen (mehrere Engines auf einem Host teilen sich die Hardware)
+  // count once per host (several engines on one host share the hardware)
   const hosts=new Map();
   for(const d of nodes) if(d.online&&!hosts.has(d.host)) hosts.set(d.host,d);
   const H=[...hosts.values()];
@@ -397,7 +399,7 @@ function totals(nodes){
   const thr=d=>d.threads||1;
   const cpuW=S(d=>(d.cpu||0)*thr(d))/S(thr);
   const label=d=>`<span class="tag" style="background:${colorOf(d)}"></span>${esc(d.machine||d.host)}`;
-  // gemeinsamer Verlauf: von hinten ausgerichtet
+  // combined history: aligned from the end
   const comb=(f,mode)=>{const L=H.map(f).filter(a=>a&&a.length);if(!L.length)return[];const n0=Math.min(...L.map(a=>a.length));
     return Array.from({length:n0},(_,i)=>{const v=L.map(a=>+a[a.length-n0+i]||0);return mode==="w"?v.reduce((a,x,j)=>a+x*thr(H[j]),0)/S(thr):v.reduce((a,x)=>a+x,0)});};
   const col=(title,big,unit,p,rows,w,b,hist,hmax,hc)=>`<div><div class="hd"><span>${title}</span><b>${big} <small class="scope">${unit}</small></b></div>
@@ -416,7 +418,7 @@ function kpis(nodes){
   const vU=sum(d=>d.gpus.reduce((a,g)=>a+(g.mem_used||0),0)),vT=sum(d=>d.gpus.reduce((a,g)=>a+(g.mem_total||0),0));
   const sav=on.find(d=>d.savings)?.savings?.usd;
   const k=[[`${on.length}/${nodes.length}`,t("kpi.online")],[on.filter(isBusy).length,t("kpi.active")],[n(live,1),t("kpi.live")],[n(sum(d=>d.totals.peak_decode_all??d.totals.peak_decode)),t("kpi.peak_decode")],[big(sum(d=>d.totals.best_prefill_all??d.totals.best_prefill)),t("kpi.peak_prefill")],[n(sum(d=>d.gpus.reduce((a,g)=>a+(g.power||0),0)))+" W",t("kpi.power")],
-    [`${gib(vU)}/${gib(vT)}`,t("kpi.vram")],[n(sum(d=>d.totals.requests)),t("kpi.requests")],[big(sum(d=>d.totals.prompt)+sum(d=>d.totals.output)),t("kpi.tokens")],[sav!=null?"$"+n(sav,2):"–",t("kpi.saved")],(()=>{const M=Object.values(LAST?.miners||{});return [`${M.filter(m=>m.running).length}/${M.length}`,t("kpi.miners")]})()];
+    [`${gib(vU)}/${gib(vT)}`,t("kpi.vram")],[n(sum(d=>d.totals.requests)),t("kpi.requests")],[big(sum(d=>d.totals.prompt)+sum(d=>d.totals.output)),t("kpi.tokens")],[sav!=null?"$"+n(sav,2):"–",t("kpi.saved")],(()=>{const M=Object.values(LAST?.miners||{});return [`${M.filter(m=>m.running).length}/${M.length}`,t("kpi.miners")]})()].filter(x=>!DEMO||x[1]!==t("kpi.miners"));
   const kh=k.map(([b,s])=>`<div class="kpi"><b>${b}</b><span>${s}</span></div>`).join("");
   $("#kpis").innerHTML=kh; $("#kpiCard").innerHTML=`<div class="kpis">${kh}</div>`;
 }
@@ -432,15 +434,15 @@ function render(){ if(!LAST) return; const d=LAST; SHOWN_MINER=new Set();
   $("#nodes").innerHTML=d.nodes.map(card).join(""); totals(d.nodes); kpis(d.nodes); compare(d.nodes); requests(d.nodes);
   applyTabs();
   $("#bIp").textContent=HIDE?t("btn.ip_show"):t("btn.ip_hide");
-  $("#tun").innerHTML=d.remote?`<a href="logout" style="color:var(--muted)">${t("hdr.logout")}</a>`:""; }
+  $("#tun").innerHTML=d.remote&&!DEMO?`<a href="logout" style="color:var(--muted)">${t("hdr.logout")}</a>`:""; }
 $("#bIp").onclick=()=>{HIDE=!HIDE;localStorage.setItem('cd_hide_ip',HIDE?'1':'0');render();};
 $("#bSnap").onclick=snapshot;
-// Kopfleiste: auf dem Handy standardmaessig eingeklappt, Zustand merken; ?kopf=0/1 erzwingt
+// Header: collapsed by default on phones, state remembered; ?kopf=0/1 forces it
 const MOB=matchMedia("(max-width:640px), (orientation:landscape) and (max-height:500px) and (pointer:coarse)");
 let HMIN=QP.has("kopf")?QP.get("kopf")==="0":(localStorage.getItem("cd_head_min")??(MOB.matches?"1":"0"))==="1";
 function setHead(m){HMIN=m;document.body.classList.toggle("hd-min",m);$("#bHead").textContent=m?t("hdr.more"):"▴";localStorage.setItem("cd_head_min",m?"1":"0");}
 setHead(HMIN); $("#bHead").onclick=()=>setHead(!HMIN);
-// ---- Tab-Layout fuers Handy: Uebersicht | je Node | Tabellen (Wischen wechselt) ----
+// ---- Tab layout for phones: overview | one per node | tables (swipe switches) ----
 let TAB=QP.get("tab")||localStorage.getItem("cd_tab")||"ov";
 const tabsOn=()=>MOB.matches&&!QP.has("alle");
 function tabList(){const L=[{id:"ov",name:t("tab.overview"),c:"var(--accent)"}];
@@ -459,14 +461,14 @@ function applyTabs(){
 }
 function setTab(id){if(id===TAB)return;TAB=id;localStorage.setItem("cd_tab",id);applyTabs();scrollTo({top:0});document.body.classList.remove("hd-hide");}
 MOB.addEventListener("change",applyTabs);
-if(QP.has("alle")) document.body.classList.add("shot");   // Export-Ansicht ohne Bedienelemente
-// Wischen links/rechts = naechster/voriger Tab (nur deutlich horizontale Gesten)
+if(QP.has("alle")) document.body.classList.add("shot");   // export view without controls
+// swipe left/right = next/previous tab (clearly horizontal gestures only)
 let tx=null,ty=null;
 addEventListener("touchstart",e=>{if(e.target.closest("table,.btns")){tx=null;return;}tx=e.touches[0].clientX;ty=e.touches[0].clientY;},{passive:true});
 addEventListener("touchend",e=>{if(tx==null||!tabsOn())return;const dx=e.changedTouches[0].clientX-tx,dy=e.changedTouches[0].clientY-ty;tx=null;
   if(Math.abs(dx)<70||Math.abs(dx)<Math.abs(dy)*1.8)return;
   const L=tabList(),i=L.findIndex(t=>t.id===TAB),j=i+(dx<0?1:-1); if(j>=0&&j<L.length) setTab(L[j].id);},{passive:true});
-// Auf dem Handy: beim Runterscrollen ausblenden, beim Hochscrollen wieder zeigen
+// On phones: hide when scrolling down, show again when scrolling up
 let lastY=scrollY;
 addEventListener("scroll",()=>{const y=scrollY;
   if(!MOB.matches||y<60) document.body.classList.remove("hd-hide");
@@ -494,7 +496,7 @@ async function tick(){
   }catch(e){ $("#upd").textContent=t("hdr.unreachable",{n:++fails}); }
   setTimeout(tick,(LAST?.poll_s||2)*1000);
 }
-// Sprache laden, dann starten; Umschalter wechselt ohne Neuladen
+// load language, then start; the switcher changes without reloading
 function relabel(){setTheme(TH);setHead(HMIN);render();}
 $("#bLang").onclick=()=>i18nNext(relabel);
 i18nInit().then(()=>{relabel();tick();});

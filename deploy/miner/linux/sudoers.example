@@ -1,4 +1,4 @@
-# Erlaubt dem Dashboard-Benutzer, genau diese Unit ohne Passwort zu schalten.
-# Installieren mit:  sudo visudo -f /etc/sudoers.d/miner-dashboard
-# <benutzer> und miner.service anpassen; Pfad von systemctl mit `command -v systemctl` pruefen.
-<benutzer> ALL=(root) NOPASSWD: /usr/bin/systemctl start miner.service, /usr/bin/systemctl stop miner.service, /usr/bin/systemctl restart miner.service
+# Lets the dashboard user switch exactly this unit without a password.
+# Install with:  sudo visudo -f /etc/sudoers.d/miner-dashboard
+# Adjust <user> and miner.service; check the systemctl path with `command -v systemctl`.
+<user> ALL=(root) NOPASSWD: /usr/bin/systemctl start miner.service, /usr/bin/systemctl stop miner.service, /usr/bin/systemctl restart miner.service
