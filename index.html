@@ -1,0 +1,474 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#111114">
+<title>Cluster · Maya / Basalt / Strata</title>
+<style>
+:root{
+  --bg:#19191d; --side:#111114; --card:#222227; --inset:#1b1b20; --fill:#2a2a30; --track:#34343b;
+  --line:#2e2e35; --line2:#3d3d46; --ink:#ececf1; --soft:#c9c9d3; --muted:#9d9daa;
+  --accent:#8b7cff; --accent-t:#b4aaff; --info:#38bdf8; --ok:#34d399; --warn:#fbbf24; --bad:#fb7185;
+  --c-maya:#8b7cff; --c-basalt:#38bdf8; --c-strata:#34d399;
+  --mono:ui-monospace,"SF Mono","Cascadia Code",Consolas,"Liberation Mono",monospace;
+  --font:"Outfit",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:14px/1.45 var(--font)}
+header{position:sticky;top:0;z-index:5;background:color-mix(in srgb,var(--side) 92%,transparent);
+  backdrop-filter:blur(8px);border-bottom:1px solid var(--line);padding:12px 20px;display:flex;gap:24px;align-items:center;flex-wrap:wrap}
+h1{margin:0;font-size:18px;font-weight:600;letter-spacing:.2px}
+h1 small{color:var(--muted);font-weight:400;font-size:13px;margin-left:8px}
+.kpis{display:flex;gap:22px;flex-wrap:wrap;margin-left:auto}
+.kpi{display:flex;flex-direction:column;min-width:70px}
+.kpi b{font-size:20px;font-weight:600;font-variant-numeric:tabular-nums}
+.kpi span{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.6px}
+main{padding:18px 20px 40px;max-width:1800px;margin:0 auto}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(380px,1fr));gap:16px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:16px;position:relative;overflow:hidden}
+.card::before{content:"";position:absolute;left:0;top:0;right:0;height:3px;background:var(--nc)}
+.nh{display:flex;align-items:flex-start;gap:10px}
+.nh h2{margin:0;font-size:20px;font-weight:600}
+.nh h2 .on{font-size:13px;font-weight:400;color:var(--muted)}
+.nh a{color:var(--muted);text-decoration:none;font-size:12px;margin-left:auto;border:1px solid var(--line2);border-radius:999px;padding:3px 10px}
+.nh a:hover{color:var(--ink);border-color:var(--nc)}
+.dot{width:10px;height:10px;border-radius:50%;margin-top:8px;flex:none;background:var(--muted)}
+.dot.idle{background:var(--ok)} .dot.busy{background:var(--warn);box-shadow:0 0 10px var(--warn);animation:p 1s infinite alternate}
+.dot.off{background:var(--bad)} @keyframes p{to{opacity:.45}}
+.sub{color:var(--muted);font-size:12.5px}
+.model{margin:8px 0 2px;font-weight:500;color:var(--soft)}
+.chips{display:flex;gap:6px;flex-wrap:wrap;margin:6px 0 10px}
+.chip{background:var(--fill);border-radius:999px;padding:2px 9px;font-size:11.5px;color:var(--soft);font-family:var(--mono)}
+.live{background:var(--inset);border:1px solid var(--line);border-radius:12px;padding:10px 12px;margin:10px 0;display:flex;gap:16px;align-items:center}
+.live .big{font-size:28px;font-weight:600;font-variant-numeric:tabular-nums;min-width:110px}
+.live .big small{font-size:13px;color:var(--muted);font-weight:400}
+.sec{margin-top:14px;font-size:11px;letter-spacing:.7px;text-transform:uppercase;color:var(--muted);border-bottom:1px solid var(--line);padding-bottom:4px;margin-bottom:8px;display:flex;justify-content:space-between}
+.row{display:grid;grid-template-columns:86px 1fr auto;gap:10px;align-items:center;margin:5px 0;font-size:12.5px}
+.row .l{color:var(--muted)} .row .v{font-family:var(--mono);font-size:12px;color:var(--soft);text-align:right;white-space:nowrap}
+.bar{height:8px;background:var(--track);border-radius:99px;overflow:hidden}
+.bar i{display:block;height:100%;border-radius:99px;background:var(--nc);transition:width .4s}
+.bar i.w{background:var(--warn)} .bar i.b{background:var(--bad)}
+.gpu{background:var(--inset);border:1px solid var(--line);border-radius:12px;padding:8px 10px;margin:6px 0}
+.gpu .gn{font-size:12.5px;display:flex;justify-content:space-between;margin-bottom:2px}
+.gpu .gn span{color:var(--muted);font-family:var(--mono);font-size:11.5px}
+.stats{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.st{background:var(--inset);border:1px solid var(--line);border-radius:10px;padding:7px 9px}
+.st b{display:block;font-size:16px;font-weight:600;font-variant-numeric:tabular-nums}
+.st span{font-size:11px;color:var(--muted)}
+.sparks{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.sp{background:var(--inset);border:1px solid var(--line);border-radius:10px;padding:6px 8px}
+.sp .t{display:flex;justify-content:space-between;font-size:11px;color:var(--muted)}
+.sp .t b{color:var(--soft);font-family:var(--mono);font-weight:500}
+.sp svg{width:100%;height:34px;display:block}
+.err{color:var(--bad);font-family:var(--mono);font-size:12px;background:rgba(251,113,133,.1);border-radius:10px;padding:10px;margin-top:10px;word-break:break-all}
+table{width:100%;border-collapse:collapse;font-size:12.5px}
+th,td{padding:6px 10px;text-align:right;border-bottom:1px solid var(--line);font-variant-numeric:tabular-nums;white-space:nowrap}
+th:first-child,td:first-child{text-align:left}
+th{color:var(--muted);font-weight:500;font-size:11.5px;text-transform:uppercase;letter-spacing:.5px}
+td.best{color:var(--ok);font-weight:600}
+.wide{margin-top:16px}
+.tag{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:6px;vertical-align:middle}
+.scope{font-size:10.5px;color:var(--muted);font-weight:400;text-transform:none;letter-spacing:0}
+button{background:var(--fill);color:var(--soft);border:1px solid var(--line2);border-radius:999px;padding:5px 12px;font:12px var(--font);cursor:pointer}
+button:hover{color:var(--ink);border-color:var(--accent)}
+.btns{display:flex;gap:8px}
+.tot{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:18px}
+.tot .hd{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:4px}
+.tot .hd b{font-size:22px;font-weight:600;font-variant-numeric:tabular-nums}
+.tot .hd span{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.6px}
+.tot .row{grid-template-columns:110px 1fr auto;margin:3px 0}
+.miner{display:flex;align-items:center;gap:10px;background:var(--inset);border:1px solid var(--line);border-radius:12px;padding:8px 12px;margin:10px 0;font-size:12.5px}
+.miner .mi{flex:1;color:var(--muted);font-family:var(--mono);font-size:11.5px}
+.miner .mi b{color:var(--soft);font-weight:500}
+.sw{position:relative;width:42px;height:24px;border-radius:99px;background:var(--track);border:none;padding:0;cursor:pointer;flex:none;transition:background .2s}
+.sw::after{content:"";position:absolute;top:3px;left:3px;width:18px;height:18px;border-radius:50%;background:#fff;transition:left .2s}
+.sw.on{background:var(--warn)} .sw.on::after{left:21px}
+.sw.pend{opacity:.55;cursor:wait} .sw:disabled{opacity:.35;cursor:not-allowed}
+.foot{color:var(--muted);font-size:11.5px;margin-top:14px}
+/* ---- Kopfleiste einklappbar + Auto-Ausblenden beim Scrollen ---- */
+header{transition:transform .25s ease}
+.hdtog{display:none;margin-left:auto;padding:4px 10px;font-size:13px;line-height:1}
+/* ---- Hochformat / Smartphone ---- */
+@media (max-width:640px){
+  body.hd-min .kpis,body.hd-min .btns{display:none}
+  body.hd-hide header{transform:translateY(-110%)}
+  header{padding:calc(8px + env(safe-area-inset-top)) 12px 8px;gap:8px 10px}
+  h1{font-size:15px;display:flex;align-items:baseline;gap:6px;flex-wrap:wrap}
+  h1 small{margin-left:0;font-size:11px}
+  .hdtog{display:inline-block}
+  .kpis{order:3;width:100%;margin-left:0;display:grid;grid-template-columns:repeat(4,1fr);gap:6px 8px}
+  .kpi{min-width:0}
+  .kpi b{font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .kpi span{font-size:8.5px;letter-spacing:.3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .btns{order:4;width:100%;overflow-x:auto;flex-wrap:nowrap;scrollbar-width:none;-webkit-overflow-scrolling:touch}
+  .btns::-webkit-scrollbar{display:none}
+  .btns button{flex:0 0 auto;white-space:nowrap;font-size:12px;padding:5px 10px}
+  main{padding:10px max(8px,env(safe-area-inset-left)) calc(30px + env(safe-area-inset-bottom))}
+  .grid{grid-template-columns:1fr;gap:10px}
+  .tot{grid-template-columns:1fr;gap:12px}
+  .card{padding:12px;border-radius:12px}
+  .row{grid-template-columns:72px 1fr auto;gap:8px;font-size:11.5px}
+  .tot .row{grid-template-columns:76px 1fr auto}
+  .stats{gap:6px}
+  .wide{margin-top:10px}
+  table{font-size:11px;table-layout:auto}
+  table th,table td{padding-left:4px;padding-right:4px}
+  #cmp td,#cmp th{white-space:normal;word-break:break-word;hyphens:auto}
+  #cmp td:first-child{width:34%}
+  #reqs td,#reqs th{white-space:nowrap}
+  #reqs tr>*:nth-child(5),#reqs tr>*:nth-child(7),#reqs tr>*:nth-child(9),#reqs tr>*:nth-child(10){display:none}
+  /* ---- Tab-Layout (nur Handy, nicht bei ?alle=1) ---- */
+  body.tabbed .tab-off{display:none!important}
+  body.tabbed #total{margin-bottom:0!important}
+  body.tabbed .wide{margin-top:0}
+  body.tabbed main{padding-bottom:calc(78px + env(safe-area-inset-bottom))}
+  body.tabbed.tab-ov.hd-min .kpis{display:grid}
+  #tabs{display:none}
+  body.shot .btns,body.shot .hdtog{display:none!important}
+  body.tabbed #tabs{display:flex;position:fixed;left:0;right:0;bottom:0;z-index:6;
+    padding:6px 6px calc(6px + env(safe-area-inset-bottom));gap:4px;
+    background:color-mix(in srgb,var(--side) 88%,transparent);backdrop-filter:blur(18px) saturate(1.4);
+    -webkit-backdrop-filter:blur(18px) saturate(1.4);border-top:1px solid var(--line)}
+  body.tabbed #tabs{overflow-x:auto;scrollbar-width:none}
+  #tabs::-webkit-scrollbar{display:none}
+  #tabs button{flex:1 0 64px;min-width:64px;display:flex;flex-direction:column;align-items:center;gap:3px;
+    padding:6px 2px;border:0;border-radius:10px;background:transparent;color:var(--muted);font:600 11px var(--font)}
+  #tabs button i{width:8px;height:8px;border-radius:50%;background:var(--tc);opacity:.85}
+  #tabs button i.busy{box-shadow:0 0 0 0 var(--tc);animation:tabpulse 1.4s infinite}
+  #tabs button i.off{background:var(--bad)}
+  #tabs button span{max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  #tabs button.on{color:var(--ink);background:color-mix(in srgb,var(--tc) 22%,transparent)}
+  @keyframes tabpulse{70%{box-shadow:0 0 0 6px transparent}100%{box-shadow:0 0 0 0 transparent}}
+  body.th-grad #tabs,body.th-img #tabs{background:linear-gradient(rgba(255,255,255,.06),rgba(255,255,255,.03)),rgba(16,6,30,.55)}
+  /* Palmen im Hochformat zur Bildmitte holen (Szene wird sonst seitlich abgeschnitten) */
+  #vice .pl1{transform:translate(540px,200px) scale(.75)}
+  #vice .pr1{transform:translate(1060px,200px) scale(-.75,.75)}
+  #vice .pl2,#vice .pr2{display:none}
+}
+/* ---- Vice-Themes: body.th-grad (Verlauf) / body.th-img (Bild) ---- */
+body.th-grad,body.th-img{--card:rgba(24,12,40,.62);--inset:rgba(18,10,30,.55);--line:rgba(255,80,170,.2);--accent:#ff2d95;--accent-t:#ff9ccf}
+body.th-grad::before,body.th-img::before{content:"";position:fixed;inset:0;z-index:-2;pointer-events:none}
+body.th-grad::before,body.th-img::before{background:
+  radial-gradient(ellipse 90% 45% at 50% 100%,rgba(255,140,60,.55),transparent 70%),
+  linear-gradient(180deg,#0d0620 0%,#2b0b4d 28%,#8a1670 52%,#ff2d95 72%,#ff7a3d 88%,#ffc25a 100%);
+  background-size:100% 100%,100% 160%;animation:vice 40s ease-in-out infinite alternate}
+@keyframes vice{from{background-position:0 0,0 0}to{background-position:0 0,0 100%}}
+#vice{display:none;position:fixed;inset:0;z-index:-1;pointer-events:none}
+#vice svg{width:100%;height:100%}
+body.th-img #vice{display:block}
+body.th-grad,body.th-img{background:#120a24}
+/* Milchglas */
+body.th-grad,body.th-img{--card:rgba(255,255,255,.07);--inset:rgba(255,255,255,.05);--fill:rgba(255,255,255,.09);--track:rgba(255,255,255,.12);
+  --line:rgba(255,255,255,.14);--line2:rgba(255,255,255,.22);--side:rgba(20,8,36,.35)}
+body.th-grad .card,body.th-img .card{background:linear-gradient(160deg,rgba(255,255,255,.10),rgba(255,255,255,.03) 60%),rgba(16,5,32,.5);
+  backdrop-filter:blur(22px) saturate(1.3) brightness(.8);-webkit-backdrop-filter:blur(22px) saturate(1.3) brightness(.8);
+  border:1px solid rgba(255,255,255,.16);box-shadow:0 8px 32px rgba(10,0,30,.35),inset 0 1px 0 rgba(255,255,255,.12)}
+body.th-grad header,body.th-img header{background:linear-gradient(rgba(255,255,255,.06),rgba(255,255,255,.03)),rgba(16,6,30,.5);backdrop-filter:blur(18px) saturate(1.4);-webkit-backdrop-filter:blur(18px) saturate(1.4);border-bottom:1px solid rgba(255,255,255,.14)}
+body.th-grad button,body.th-img button{background:rgba(255,255,255,.08);border-color:rgba(255,255,255,.18);backdrop-filter:blur(8px)}
+body.th-grad table th,body.th-img table th{background:transparent}
+</style>
+</head>
+<body>
+<div id="vice"><svg viewBox="0 0 1600 900" preserveAspectRatio="xMidYMax slice" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="vSun" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffe27a"/><stop offset=".5" stop-color="#ff7a3d"/><stop offset="1" stop-color="#ff2d95"/></linearGradient>
+    <linearGradient id="vSea" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#3a0d5c"/><stop offset="1" stop-color="#0b0418"/></linearGradient>
+    <mask id="vStripes"><rect width="1600" height="900" fill="#fff"/>
+      <g fill="#000"><rect y="610" width="1600" height="6"/><rect y="632" width="1600" height="9"/><rect y="656" width="1600" height="12"/><rect y="684" width="1600" height="15"/></g></mask>
+    <g id="vPalm" fill="#14061f">
+      <path d="M110 900 C140 700 175 500 238 328 L254 334 C195 505 168 705 142 900 Z"/>
+      <path d="M244 330 Q160 268 30 300 Q150 288 242 342 Z"/>
+      <path d="M244 330 Q310 248 440 282 Q315 272 248 342 Z"/>
+      <path d="M244 330 Q200 215 100 182 Q212 228 250 336 Z"/>
+      <path d="M244 330 Q295 205 380 165 Q292 228 254 336 Z"/>
+      <path d="M244 330 Q165 335 80 430 Q178 352 244 344 Z"/>
+      <path d="M244 330 Q325 332 400 428 Q312 352 248 344 Z"/>
+      <path d="M244 330 Q250 230 236 140 Q262 232 252 334 Z"/>
+      <circle cx="246" cy="338" r="9"/>
+    </g>
+  </defs>
+  <circle cx="800" cy="640" r="210" fill="url(#vSun)" mask="url(#vStripes)" opacity=".6"/>
+  <g fill="#1d0833">
+    <rect x="430" y="560" width="46" height="150"/><rect x="482" y="520" width="34" height="190"/><rect x="522" y="585" width="60" height="125"/>
+    <rect x="590" y="540" width="28" height="170"/><rect x="960" y="530" width="40" height="180"/><rect x="1006" y="575" width="56" height="135"/>
+    <rect x="1068" y="500" width="30" height="210"/><rect x="1104" y="560" width="50" height="150"/><rect x="1160" y="590" width="40" height="120"/>
+  </g>
+  <g fill="#19e3d0" opacity=".75"><rect x="490" y="540" width="4" height="4"/><rect x="500" y="560" width="4" height="4"/><rect x="1076" y="520" width="4" height="4"/><rect x="1086" y="545" width="4" height="4"/><rect x="972" y="550" width="4" height="4"/><rect x="1114" y="580" width="4" height="4"/></g>
+  <g fill="#ff2d95" opacity=".7"><rect x="440" y="580" width="4" height="4"/><rect x="600" y="560" width="4" height="4"/><rect x="1020" y="600" width="4" height="4"/><rect x="1172" y="610" width="4" height="4"/></g>
+  <rect y="710" width="1600" height="190" fill="url(#vSea)"/>
+  <g stroke="#ff7a3d" stroke-width="3" opacity=".5"><line x1="690" y1="735" x2="910" y2="735"/><line x1="720" y1="765" x2="880" y2="765"/><line x1="750" y1="800" x2="850" y2="800"/></g>
+  <use class="pl1" href="#vPalm"/>
+  <use class="pl2" href="#vPalm" transform="translate(150 140) scale(.7)"/>
+  <use class="pr1" href="#vPalm" transform="translate(1600 0) scale(-1 1)"/>
+  <use class="pr2" href="#vPalm" transform="translate(1440 160) scale(-.68 .68)"/>
+</svg></div>
+<header>
+  <h1>Cluster-Telemetrie <small id="upd">verbinde …</small></h1><small id="tun" class="scope"></small><button id="bHead" class="hdtog" title="Kopfleiste ein-/ausklappen">▴</button>
+  <div class="kpis" id="kpis"></div>
+  <div class="btns"><button id="bTheme" title="Hintergrund umschalten">🌴 Stil: aus</button><button id="bIp">IPs ausblenden</button><button id="bSnap">Snapshot exportieren</button><button id="bShot" title="ganze Seite als PNG (serverseitig gerendert)">📷 Ganze Seite</button><button onclick="location.href='config'">⚙ Konfiguration</button></div>
+</header>
+<main>
+  <div class="card total" id="total" style="--nc:var(--accent);margin-bottom:16px"></div>
+  <div class="grid" id="nodes"></div>
+  <div class="grid wide" id="wide">
+    <div class="card" style="--nc:var(--accent)"><div class="sec">Vergleich <span class="scope">grün = bester Wert</span></div><table id="cmp"></table></div>
+    <div class="card" style="--nc:var(--accent)"><div class="sec">Letzte Requests (alle Nodes)</div><table id="reqs"></table></div>
+  </div>
+  <div class="foot" id="foot">Quelle: /metrics, /v1/status und /api/savings (Maya) der drei Server, über den Aggregator auf .76:8095. Engines werden pro Rechner automatisch erkannt (Port-Scan + /v1/status → service).</div>
+</main>
+<nav id="tabs"></nav>
+<script>
+const colorOf=d=>d.color||"var(--accent)";
+const $=s=>document.querySelector(s);
+const esc=s=>String(s??"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const n=(v,d=0)=>v==null||isNaN(v)?"–":Number(v).toLocaleString("de-DE",{maximumFractionDigits:d,minimumFractionDigits:d});
+const big=v=>v==null?"–":v>=1e9?n(v/1e9,2)+" G":v>=1e6?n(v/1e6,1)+" M":v>=1e3?n(v/1e3,1)+" k":n(v);
+const gib=b=>b==null?"–":n(b/2**30,1);
+const pct=(a,b)=>b?Math.max(0,Math.min(100,a/b*100)):0;
+const dur=s=>{if(s==null)return"–";s=Math.floor(s);const d=Math.floor(s/86400),h=Math.floor(s%86400/3600),m=Math.floor(s%3600/60);return d?`${d}d ${h}h`:h?`${h}h ${m}m`:`${m}m`};
+const ago=t=>t?dur(Date.now()/1000-t)+" her":"–";
+const cls=(v,w,b)=>v>=b?"b":v>=w?"w":"";
+function bar(p,w=80,b=92){return `<div class="bar"><i class="${cls(p,w,b)}" style="width:${p.toFixed(1)}%"></i></div>`}
+function row(l,p,v,w,b){return `<div class="row"><div class="l">${l}</div>${bar(p,w,b)}<div class="v">${v}</div></div>`}
+function spark(arr,color,max){
+  arr=(arr||[]).map(x=>x==null?0:+x); if(arr.length<2) return `<svg></svg>`;
+  const mx=max??Math.max(1,...arr), W=200,H=34, st=W/(arr.length-1);
+  const pts=arr.map((v,i)=>`${(i*st).toFixed(1)},${(H-2-(v/mx)*(H-4)).toFixed(1)}`).join(" ");
+  return `<svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none"><polyline points="0,${H} ${pts} ${W},${H}" fill="${color}" fill-opacity=".14" stroke="none"/><polyline points="${pts}" fill="none" stroke="${color}" stroke-width="1.6" vector-effect="non-scaling-stroke"/></svg>`;
+}
+function sp(t,val,arr,c,max){return `<div class="sp"><div class="t">${t}<b>${val}</b></div>${spark(arr,c,max)}</div>`}
+const QP=new URLSearchParams(location.search);
+let HIDE=QP.has("hideip")?QP.get("hideip")==="1":localStorage.getItem('cd_hide_ip')==='1';
+const ip=h=>HIDE?'•••.•••.•.'+String(h||'').split('.').pop().replace(/./g,'•'):esc(h);
+const hps=v=>{if(v==null)return"–";const u=["H/s","kH/s","MH/s","GH/s","TH/s","PH/s"];let i=0;while(v>=1000&&i<u.length-1){v/=1000;i++}return n(v,2)+" "+u[i]};
+let SHOWN_MINER=new Set();
+function minerBox(host){
+  const m=LAST?.miners?.[host]; if(!m||SHOWN_MINER.has(host)) return ""; SHOWN_MINER.add(host);
+  const pend=m.pending, on=pend?pend==="start":!!m.running;
+  const info=!m.available?esc(m.note||"nicht verfügbar"):pend?(pend==="start"?"startet …":"stoppt …"):m.running?
+    `<b>${hps(m.hashrate)}</b> · Shares ${m.shares?`${m.shares.accepted}/${m.shares.total}${m.shares.rejected?` (${m.shares.rejected} abgelehnt)`:""}`:"–"} · ${(m.gpus||[]).map(g=>`${g.temp}°C ${g.power||"?"}W`).join(" · ")} · ${dur(m.uptime)}`:m.paused?"pausiert (LLM aktiv, miner-gate)":"aus";
+  return `<div class="miner"><span>⛏ Miner</span><div class="mi">${info}</div><button class="sw ${on?"on":""} ${pend?"pend":""}" ${!m.available||pend?"disabled":""} title="${on?"Miner stoppen":"Miner starten"}" onclick="minerToggle('${esc(host)}',${on?"'stop'":"'start'"},this)"></button></div>`;
+}
+async function minerToggle(host,action,btn){
+  const name=(LAST.nodes.find(d=>d.host===host)||{}).machine||host;
+  if(!confirm(`Miner auf ${name} ${action==="start"?"starten":"stoppen"}?`)) return;
+  LAST.miners[host]={...LAST.miners[host],pending:action}; render();
+  try{const r=await fetch("api/miner",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({host,action})});
+    const d=await r.json(); LAST.miners=d.miners; render(); if(!d.ok) alert("Miner "+action+" fehlgeschlagen: "+d.error);
+  }catch(e){alert(e)}
+}
+const isBusy=d=>d.online&&(d.state&&d.state!=="idle"&&d.state!=="loaded"||d.in_flight>0||d.phase);
+
+function card(d){
+  const c=colorOf(d);
+  if(!d.online) return `<div class="card" style="--nc:var(--bad)"><div class="nh"><span class="dot off"></span><div><h2>${esc(d.name)}</h2><div class="sub">${esc(d.machine||"")}${d.role?" · "+esc(d.role):""} · ${ip(d.host)}${d.port?":"+d.port:""}</div></div>${d.ui?`<a href="${esc(d.ui)}" target="_blank">öffnen ↗</a>`:""}</div><div class="err">${d.port?"offline / nicht erreichbar":"kein Engine-Server aktiv"}<br>${esc(d.error)}</div>${minerBox(d.host)}</div>`;
+  const t=d.totals, busy=isBusy(d), h=d.history;
+  const vramU=d.gpus.reduce((a,g)=>a+(g.mem_used||0),0), vramT=d.gpus.reduce((a,g)=>a+(g.mem_total||0),0);
+  const powU=d.gpus.reduce((a,g)=>a+(g.power||0),0), powL=d.gpus.reduce((a,g)=>a+(g.power_limit||0),0);
+  let liveTxt = busy ? `${esc(d.phase||d.state)}${d.live_prompt[1]?` · Prompt ${big(d.live_prompt[0])}/${big(d.live_prompt[1])}`:""}${d.live_generated?` · ${n(d.live_generated)} Tok. erzeugt`:""}` : `idle · letzter Request ${ago(d.last_request_at)}`;
+  const chips=[d.engine&&`v${d.engine}`,d.quant,d.kv&&`KV ${d.kv}`,d.context&&`${big(d.context)} ctx`,...(d.speculation||[]),d.vision&&"Vision",d.cuda&&`CUDA ${d.cuda}`,d.driver&&`Treiber ${d.driver}`].filter(Boolean);
+  let html=`<div class="card" style="--nc:${c}">
+  <div class="nh"><span class="dot ${busy?"busy":"idle"}"></span><div><h2>${esc(d.name)} <span class="on">auf ${esc(d.machine||"")}</span></h2><div class="sub">${d.role?esc(d.role)+" · ":""}${ip(d.host)}:${d.port} · up ${dur(d.uptime_s)} · ${d.latency_ms} ms</div></div><a href="${esc(d.ui)}" target="_blank">Monitor ↗</a></div>
+  <div class="model">${esc(d.model_label||d.model)}</div>
+  <div class="chips">${chips.map(x=>`<span class="chip">${esc(x)}</span>`).join("")}</div>
+  ${minerBox(d.host)}
+  ${!busy&&d.gpus.some(g=>(g.util||0)>50)?`<div class="err" style="color:var(--warn);background:rgba(251,191,36,.1);margin:8px 0 0">LLM idle, GPU trotzdem ${n(Math.max(...d.gpus.map(g=>g.util||0)))} % / ${n(d.gpus.reduce((a,g)=>a+(g.power||0),0))} W → ${LAST?.miners?.[d.host]?.running?"Miner aktiv":"Fremdlast"}</div>`:""}
+  <div class="live"><div class="big">${busy&&d.live_tok_s?n(d.live_tok_s,1):busy&&d.live_prefill?big(d.live_prefill):"–"} <small>${busy&&!d.live_tok_s&&d.live_prefill?"Prefill tok/s":"tok/s"}</small></div><div class="sub">${liveTxt}${d.queued?` · <b style="color:var(--warn)">${d.queued} wartend</b>`:""}</div></div>
+  <div class="sec">GPU${d.gpus.length>1?"s":""} <span class="scope">${gib(vramU)}/${gib(vramT)} GiB · ${n(powU)} W${powL?` / ${n(powL)} W`:""}</span></div>`;
+  for(const g of d.gpus){
+    html+=`<div class="gpu"><div class="gn">${esc(g.name.replace("NVIDIA GeForce ",""))}${d.gpus.length>1?` #${g.index}`:""}<span>${g.temp??"–"} °C · ${g.pcie??""}${g.pcie_max&&g.pcie&&!g.pcie.startsWith("Gen"+g.pcie_max)?` (max Gen${g.pcie_max})`:""}</span></div>
+    ${row("Auslastung",g.util||0,`${n(g.util)} %`,101,101)}
+    ${row("VRAM",pct(g.mem_used,g.mem_total),`${gib(g.mem_used)} / ${gib(g.mem_total)} GiB`,97,99.5)}
+    ${row("Leistung",pct(g.power,g.power_limit||g.power),`${n(g.power)}${g.power_limit?` / ${n(g.power_limit)}`:""} W`,90,99)}
+    ${row("Temperatur",Math.min(100,(g.temp||0)),`${g.temp??"–"} °C`,80,87)}</div>`;
+  }
+  html+=`<div class="sec">System <span class="scope">${esc((d.cpu_name||"").replace(/\(R\)|\(TM\)| CPU @.*| with Radeon Graphics/g,""))}${d.threads?` · ${d.threads} Threads`:""}</span></div>
+  ${row("CPU",d.cpu||0,`${n(d.cpu,1)} %`,80,95)}
+  ${row("RAM",pct(d.ram_used,d.ram_total),`${gib(d.ram_used)} / ${gib(d.ram_total)} GiB`,85,95)}
+  ${d.storage?row("Modell-SSD",pct(d.storage.total-d.storage.free,d.storage.total),`${n(d.storage.free/1e9)} GB frei`,85,95):""}
+  <div class="sec">Verlauf <span class="scope">letzte ~60 Samples</span></div>
+  <div class="sparks">
+   ${sp("Decode tok/s",n(h.tok_s.at(-1),1),h.tok_s,c)}
+   ${sp("GPU-Auslastung",n(h.gpu_util.at(-1))+" %",h.gpu_util,c,100)}
+   ${sp("GPU-Leistung",n(h.gpu_power.at(-1))+" W",h.gpu_power,"var(--warn)")}
+   ${h.cpu.length?sp("CPU",n(h.cpu.at(-1),1)+" %",h.cpu,"var(--info)",100):sp("GPU-Temp",n(h.gpu_temp.at(-1))+" °C",h.gpu_temp,"var(--bad)",100)}
+  </div>
+  <div class="sec">Seit Start <span class="scope">${t.since?new Date(t.since*1000).toLocaleString("de-DE",{dateStyle:"short",timeStyle:"short"}):""}</span></div>
+  <div class="stats">
+   <div class="st"><b>${n(t.requests)}</b><span>Requests</span></div>
+   <div class="st"><b>${big(t.prompt)}</b><span>Prompt-Tokens</span></div>
+   <div class="st"><b>${big(t.output)}</b><span>Output-Tokens</span></div>
+   <div class="st"><b>${n(t.reuse_pct,1)} %</b><span>Cache-Reuse</span></div>
+   <div class="st"><b>${n(t.decode_avg,1)}</b><span>Ø Decode tok/s</span></div>
+   <div class="st"><b>${big(t.prefill_avg)}</b><span>Ø Prefill <span class="scope">(abgeleitet)</span></span></div>
+   <div class="st"><b>${n(t.peak_decode,1)}</b><span>Peak Decode <span class="scope">(Allzeit ${n(t.peak_decode_all,1)})</span></span></div>
+   <div class="st"><b>${big(t.best_prefill??t.best_prefill_all)}</b><span>Peak Prefill <span class="scope">(Allzeit ${big(t.best_prefill_all)})</span></span></div>
+   <div class="st"><b>${n(t.draft_acc_pct,1)} %</b><span>Draft-Akzeptanz <span class="scope">(${t.drafts_scope})</span></span></div>
+   <div class="st"><b>${d.expert_hit!=null?n(d.expert_hit*100,1)+" %":"–"}</b><span>Expert-Hit VRAM <span class="scope">(${d.expert_hit_scope})</span></span></div>
+   <div class="st"><b>${n(d.expert_cache_mib/1024,1)} GiB</b><span>Expert-Cache</span></div>
+   <div class="st"><b>${d.last.decode!=null?n(d.last.decode,1):"–"}</b><span>Letzter Decode tok/s</span></div>
+  </div>`;
+  if(d.tiers){const r=d.tiers;html+=`<div class="sec">Expert-Tiers <span class="scope">Maya</span></div>
+   ${row("VRAM-Slots",pct(r.vram_used,r.vram_slots),`${n(r.vram_used)} / ${n(r.vram_slots)}`,101,101)}
+   ${row("RAM-Slots",pct(r.ram_used,r.ram_slots),`${n(r.ram_used)} / ${n(r.ram_slots)}`,101,101)}
+   <div class="sparks" style="margin-top:6px">${sp("VRAM-Hit",n(d.expert_hit*100,1)+" %",r.history_hit.map(x=>x*100),c,100)}${sp("RAM-Fetch / SSD",`${n(r.ram_fetch,2)} / ${n(r.disk,2)}`,[],c)}</div>`;}
+  if(d.savings){html+=`<div class="sec">Gespart (API-Gegenwert) <span class="scope">${esc((d.savings.prices||[]).map(p=>`${p.api}: $${p.input}/$${p.cached}/$${p.output} pro M`).join(", "))}</span></div>
+   <div class="stats"><div class="st"><b>$${n(d.savings.usd,2)}</b><span>gesamt seit ${d.savings.since?new Date(d.savings.since*1000).toLocaleDateString("de-DE"):""}</span></div><div class="st"><b>$${n(d.savings.start_usd,2)}</b><span>dieser Lauf</span></div></div>`;}
+  if(d.loop_guard){const lg=d.loop_guard;html+=`<div class="sub" style="margin-top:8px">Loop-Guard ${lg.on?"an":"aus"} · erkannt ${lg.detected} · gestoppt ${lg.stopped} · Tool-Wdh. ${lg.tool_repeats}</div>`;}
+  if(d.conv_cache) html+=`<div class="sub" style="margin-top:8px">Conversation-Cache: ${n(d.conv_cache.reused)} von ${n(d.conv_cache.requests)} Requests mit Reuse</div>`;
+  return html+`</div>`;
+}
+
+function compare(nodes){
+  const on=nodes.filter(d=>d.online);
+  const rows=[
+    ["Modell",d=>d.model,null],
+    ["Kontext",d=>d.context,1,big],
+    ["Ø Decode tok/s",d=>d.totals.decode_avg,1,v=>n(v,1)],
+    ["Peak Decode tok/s",d=>d.totals.peak_decode_all??d.totals.peak_decode,1,v=>n(v,1)],
+    ["Peak Prefill tok/s",d=>d.totals.best_prefill_all??d.totals.best_prefill,1,big],
+    ["Ø Prefill (abgeleitet)",d=>d.totals.prefill_avg,0,big],
+    ["Cache-Reuse",d=>d.totals.reuse_pct,1,v=>n(v,1)+" %"],
+    ["Draft-Akzeptanz",d=>d.totals.draft_acc_pct,1,v=>n(v,1)+" %"],
+    ["Expert-Hit",d=>d.expert_hit!=null?d.expert_hit*100:null,1,v=>n(v,1)+" %"],
+    ["Requests",d=>d.totals.requests,0,v=>n(v)],
+    ["Prompt-Tokens",d=>d.totals.prompt,0,big],
+    ["Output-Tokens",d=>d.totals.output,0,big],
+    ["VRAM gesamt",d=>d.gpus.reduce((a,g)=>a+(g.mem_total||0),0),0,v=>gib(v)+" GiB"],
+    ["GPU-Leistung jetzt",d=>d.gpus.reduce((a,g)=>a+(g.power||0),0),-1,v=>n(v)+" W"],
+    ["GPU-Temp max",d=>Math.max(...d.gpus.map(g=>g.temp||0)),-1,v=>n(v)+" °C"],
+    ["Uptime",d=>d.uptime_s,0,dur],
+    ["Latenz Dashboard",d=>d.latency_ms,-1,v=>n(v)+" ms"],
+  ];
+  let h=`<tr><th></th>${on.map(d=>`<th><span class="tag" style="background:${colorOf(d)}"></span>${esc(d.name)}<br><span class="scope">${esc(d.machine||"")}</span></th>`).join("")}</tr>`;
+  for(const [l,f,dir,fmt] of rows){
+    const vals=on.map(f); let bi=-1;
+    if(dir===1||dir===-1){const nums=vals.map(v=>typeof v==="number"&&isFinite(v)?v:null);const c=nums.filter(v=>v!=null);if(c.length>1){const t=dir===1?Math.max(...c):Math.min(...c);bi=nums.indexOf(t);}}
+    h+=`<tr><td>${l}</td>${vals.map((v,i)=>`<td class="${i===bi?"best":""}">${fmt?fmt(v):esc(v)}</td>`).join("")}</tr>`;
+  }
+  $("#cmp").innerHTML=h;
+}
+
+function requests(nodes){
+  const all=[];for(const d of nodes) if(d.online) for(const r of d.requests) all.push({...r,color:colorOf(d),name:d.name+" @ "+(d.machine||"")});
+  all.sort((a,b)=>(b.time||0)-(a.time||0));
+  let h=`<tr><th>Node</th><th>Zeit</th><th>Dauer</th><th>Prompt</th><th>Reuse</th><th>Out</th><th>Prefill</th><th>Decode</th><th>Hit</th><th>Drafts</th></tr>`;
+  for(const r of all.slice(0,14)) h+=`<tr><td><span class="tag" style="background:${r.color}"></span>${esc(r.name)}</td><td>${r.time?new Date(r.time*1000).toLocaleTimeString("de-DE"):"–"}</td><td>${n(r.duration_s,1)} s</td><td>${big(r.prompt)}</td><td>${r.prompt?n((r.reused||0)/r.prompt*100)+" %":"–"}</td><td>${n(r.output)}</td><td>${big(r.prefill)}</td><td>${n(r.decode,1)}</td><td>${r.hit!=null?n(r.hit*100)+" %":"–"}</td><td>${r.drafts[1]?`${r.drafts[0]}/${r.drafts[1]}`:"–"}</td></tr>`;
+  $("#reqs").innerHTML=h;
+}
+
+function totals(nodes){
+  // pro Rechner einmal zaehlen (mehrere Engines auf einem Host teilen sich die Hardware)
+  const hosts=new Map();
+  for(const d of nodes) if(d.online&&!hosts.has(d.host)) hosts.set(d.host,d);
+  const H=[...hosts.values()];
+  if(!H.length){$("#total").innerHTML='<div class="sub">keine Engine erreichbar</div>';return;}
+  const vU=d=>d.gpus.reduce((a,g)=>a+(g.mem_used||0),0), vT=d=>d.gpus.reduce((a,g)=>a+(g.mem_total||0),0);
+  const pW=d=>d.gpus.reduce((a,g)=>a+(g.power||0),0), pL=d=>d.gpus.reduce((a,g)=>a+(g.power_limit||0),0);
+  const S=f=>H.reduce((a,d)=>a+(f(d)||0),0);
+  const thr=d=>d.threads||1;
+  const cpuW=S(d=>(d.cpu||0)*thr(d))/S(thr);
+  const label=d=>`<span class="tag" style="background:${colorOf(d)}"></span>${esc(d.machine||d.host)}`;
+  // gemeinsamer Verlauf: von hinten ausgerichtet
+  const comb=(f,mode)=>{const L=H.map(f).filter(a=>a&&a.length);if(!L.length)return[];const n0=Math.min(...L.map(a=>a.length));
+    return Array.from({length:n0},(_,i)=>{const v=L.map(a=>+a[a.length-n0+i]||0);return mode==="w"?v.reduce((a,x,j)=>a+x*thr(H[j]),0)/S(thr):v.reduce((a,x)=>a+x,0)});};
+  const col=(title,big,unit,p,rows,w,b,hist,hmax,hc)=>`<div><div class="hd"><span>${title}</span><b>${big} <small class="scope">${unit}</small></b></div>
+    ${row("Gesamt",p,`${n(p,1)} %`,w,b)}${rows}${hist?`<div class="sp" style="margin-top:6px">${spark(hist,hc,hmax)}</div>`:""}</div>`;
+  $("#total").innerHTML=`<div class="sec">Cluster gesamt <span class="scope">${H.length} Rechner · ${S(d=>d.gpus.length)} GPUs · ${S(d=>d.threads)} CPU-Threads</span></div><div class="tot">
+   ${col("VRAM gesamt",`${gib(S(vU))} / ${gib(S(vT))}`,"GiB",pct(S(vU),S(vT)),H.map(d=>row(label(d),pct(vU(d),vT(d)),`${gib(vU(d))} / ${gib(vT(d))}`,97,99.5)).join(""),97,99.5)}
+   ${col("System-RAM gesamt",`${gib(S(d=>d.ram_used))} / ${gib(S(d=>d.ram_total))}`,"GiB",pct(S(d=>d.ram_used),S(d=>d.ram_total)),H.map(d=>row(label(d),pct(d.ram_used,d.ram_total),`${gib(d.ram_used)} / ${gib(d.ram_total)}`,85,95)).join(""),85,95)}
+   ${col("CPU-Auslastung",n(cpuW,1),"% (nach Threads gewichtet)",cpuW,H.map(d=>row(label(d),d.cpu||0,`${n(d.cpu,1)} % · ${d.threads||"?"} T`,80,95)).join(""),80,95,comb(d=>d.history.cpu,"w"),100,"var(--info)")}
+   ${col("GPU-Leistung",`${n(S(pW))} / ${n(S(pL))}`,"W",pct(S(pW),S(pL)),H.map(d=>row(label(d),pct(pW(d),pL(d)||pW(d)),`${n(pW(d))} / ${n(pL(d))} W · ${n(Math.max(...d.gpus.map(g=>g.util||0)))} %`,90,99)).join(""),90,99,comb(d=>d.history.gpu_power,"s"),null,"var(--warn)")}
+  </div>`;
+}
+function kpis(nodes){
+  const on=nodes.filter(d=>d.online);
+  const sum=f=>on.reduce((a,d)=>a+(f(d)||0),0);
+  const live=sum(d=>isBusy(d)?d.live_tok_s:0);
+  const vU=sum(d=>d.gpus.reduce((a,g)=>a+(g.mem_used||0),0)),vT=sum(d=>d.gpus.reduce((a,g)=>a+(g.mem_total||0),0));
+  const sav=on.find(d=>d.savings)?.savings?.usd;
+  const k=[[`${on.length}/${nodes.length}`,"Engines online"],[on.filter(isBusy).length,"aktiv"],[n(live,1),"tok/s live"],[n(sum(d=>d.totals.peak_decode_all??d.totals.peak_decode)),"Peak Decode Σ"],[big(sum(d=>d.totals.best_prefill_all??d.totals.best_prefill)),"Peak Prefill Σ"],[n(sum(d=>d.gpus.reduce((a,g)=>a+(g.power||0),0)))+" W","GPU-Leistung"],
+    [`${gib(vU)}/${gib(vT)}`,"VRAM GiB"],[n(sum(d=>d.totals.requests)),"Requests"],[big(sum(d=>d.totals.prompt)+sum(d=>d.totals.output)),"Tokens"],[sav!=null?"$"+n(sav,2):"–","gespart (Maya)"],(()=>{const M=Object.values(LAST?.miners||{});return [`${M.filter(m=>m.running).length}/${M.length}`,"Miner aktiv"]})()];
+  $("#kpis").innerHTML=k.map(([b,s])=>`<div class="kpi"><b>${b}</b><span>${s}</span></div>`).join("");
+}
+
+let LAST=null;
+function snapshot(){
+  if(!LAST) return;
+  const blob=new Blob([JSON.stringify({exported:new Date().toISOString(),source:"cluster-dashboard",note:"keine API-Keys enthalten",...LAST},null,2)],{type:"application/json"});
+  const a=document.createElement("a");a.href=URL.createObjectURL(blob);
+  a.download="cluster-snapshot-"+new Date().toISOString().replace(/[:.]/g,"-").slice(0,19)+".json";a.click();URL.revokeObjectURL(a.href);
+}
+function render(){ if(!LAST) return; const d=LAST; SHOWN_MINER=new Set();
+  $("#nodes").innerHTML=d.nodes.map(card).join(""); totals(d.nodes); kpis(d.nodes); compare(d.nodes); requests(d.nodes);
+  applyTabs();
+  $("#bIp").textContent=HIDE?"IPs zeigen":"IPs ausblenden";
+  $("#tun").innerHTML=d.remote?'<a href="logout" style="color:var(--muted)">abmelden</a>':""; }
+$("#bIp").onclick=()=>{HIDE=!HIDE;localStorage.setItem('cd_hide_ip',HIDE?'1':'0');render();};
+$("#bSnap").onclick=snapshot;
+// Kopfleiste: auf dem Handy standardmaessig eingeklappt, Zustand merken; ?kopf=0/1 erzwingt
+const MOB=matchMedia("(max-width:640px)");
+let HMIN=QP.has("kopf")?QP.get("kopf")==="0":(localStorage.getItem("cd_head_min")??(MOB.matches?"1":"0"))==="1";
+function setHead(m){HMIN=m;document.body.classList.toggle("hd-min",m);$("#bHead").textContent=m?"▾ mehr":"▴";localStorage.setItem("cd_head_min",m?"1":"0");}
+setHead(HMIN); $("#bHead").onclick=()=>setHead(!HMIN);
+// ---- Tab-Layout fuers Handy: Uebersicht | je Node | Tabellen (Wischen wechselt) ----
+let TAB=QP.get("tab")||localStorage.getItem("cd_tab")||"ov";
+const tabsOn=()=>MOB.matches&&!QP.has("alle");
+function tabList(){const L=[{id:"ov",name:"Übersicht",c:"var(--accent)"}];
+  for(const d of LAST?.nodes||[]) L.push({id:d.id,name:d.name,c:colorOf(d),busy:isBusy(d),off:!d.online});
+  L.push({id:"tab",name:"Tabellen",c:"var(--accent)"}); return L;}
+function applyTabs(){
+  const on=tabsOn(); document.body.classList.toggle("tabbed",on);
+  const L=tabList(); if(!L.some(t=>t.id===TAB)) TAB="ov";
+  document.body.classList.toggle("tab-ov",on&&TAB==="ov");
+  $("#total").classList.toggle("tab-off",on&&TAB!=="ov");
+  $("#wide").classList.toggle("tab-off",on&&TAB!=="tab");
+  $("#foot").classList.toggle("tab-off",on&&TAB!=="tab");
+  [...$("#nodes").children].forEach((el,i)=>el.classList.toggle("tab-off",on&&(LAST?.nodes?.[i]?.id!==TAB)));
+  if(!on) return;
+  $("#tabs").innerHTML=L.map(t=>`<button class="${t.id===TAB?"on":""}" style="--tc:${t.c}" onclick="setTab('${esc(t.id)}')"><i class="${t.off?"off":t.busy?"busy":""}"></i><span>${esc(t.name)}</span></button>`).join("");
+}
+function setTab(id){if(id===TAB)return;TAB=id;localStorage.setItem("cd_tab",id);applyTabs();scrollTo({top:0});document.body.classList.remove("hd-hide");}
+MOB.addEventListener("change",applyTabs);
+if(QP.has("alle")) document.body.classList.add("shot");   // Export-Ansicht ohne Bedienelemente
+// Wischen links/rechts = naechster/voriger Tab (nur deutlich horizontale Gesten)
+let tx=null,ty=null;
+addEventListener("touchstart",e=>{if(e.target.closest("table,.btns")){tx=null;return;}tx=e.touches[0].clientX;ty=e.touches[0].clientY;},{passive:true});
+addEventListener("touchend",e=>{if(tx==null||!tabsOn())return;const dx=e.changedTouches[0].clientX-tx,dy=e.changedTouches[0].clientY-ty;tx=null;
+  if(Math.abs(dx)<70||Math.abs(dx)<Math.abs(dy)*1.8)return;
+  const L=tabList(),i=L.findIndex(t=>t.id===TAB),j=i+(dx<0?1:-1); if(j>=0&&j<L.length) setTab(L[j].id);},{passive:true});
+// Auf dem Handy: beim Runterscrollen ausblenden, beim Hochscrollen wieder zeigen
+let lastY=scrollY;
+addEventListener("scroll",()=>{const y=scrollY;
+  if(!MOB.matches||y<60) document.body.classList.remove("hd-hide");
+  else if(y>lastY+6) document.body.classList.add("hd-hide");
+  else if(y<lastY-6) document.body.classList.remove("hd-hide");
+  lastY=y;},{passive:true});
+$("#bShot").onclick=async()=>{const b=$("#bShot");b.disabled=true;b.textContent="📷 rendert …";
+  try{const w=document.documentElement.clientWidth,dpr=Math.min(2,Math.max(1,Math.round(devicePixelRatio||1)));
+    const r=await fetch(`api/screenshot?w=${w}&dpr=${dpr}&stil=${TH}&hideip=${HIDE?1:0}`);
+    if(!r.ok) throw new Error(await r.text());
+    const a=document.createElement("a");a.href=URL.createObjectURL(await r.blob());
+    a.download="cluster-dashboard-"+new Date().toISOString().replace(/[:.]/g,"-").slice(0,19)+".png";a.click();URL.revokeObjectURL(a.href);
+  }catch(e){alert("Screenshot fehlgeschlagen: "+e.message)}finally{b.disabled=false;b.textContent="📷 Ganze Seite";}};
+const THEMES=[["","aus"],["th-grad","Verlauf"],["th-img","Palmen"]];
+function setTheme(i){document.body.classList.remove("th-grad","th-img");if(THEMES[i][0])document.body.classList.add(THEMES[i][0]);
+  $("#bTheme").textContent="🌴 Stil: "+THEMES[i][1];localStorage.setItem("cd_theme",i);}
+let TH=+(new URLSearchParams(location.search).get("stil")??localStorage.getItem("cd_theme")??0)%THEMES.length; setTheme(TH);
+$("#bTheme").onclick=()=>setTheme(TH=(TH+1)%THEMES.length);
+let fails=0;
+async function tick(){
+  try{
+    const r=await fetch("api/all",{cache:"no-store"}); if(r.status===401){location.href="login";return;} const d=await r.json();
+    LAST=d; render();
+    $("#upd").textContent="Stand "+new Date(d.time*1000).toLocaleTimeString("de-DE"); fails=0;
+  }catch(e){ $("#upd").textContent="Aggregator nicht erreichbar ("+(++fails)+")"; }
+  setTimeout(tick,(LAST?.poll_s||2)*1000);
+}
+tick();
+</script>
+</body>
+</html>

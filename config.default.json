@@ -1,0 +1,36 @@
+{
+  "_kommentar": "Standard-Konfiguration. Beim ersten Start ohne config.json wird diese Datei kopiert. Rechner, Keys und Engines danach im Browser unter /config eintragen. Login fuer den Tunnel: python3 server.py --set-password BENUTZER",
+  "port": 8095,
+  "host": "0.0.0.0",
+  "timeout_s": 4.0,
+  "poll_s": 2.0,
+  "scan_ports": "8080-8099",
+  "rediscover_s": 30,
+  "keys": [],
+  "key_files": [],
+  "machines": [
+    {
+      "host": "127.0.0.1",
+      "name": "dieser Rechner",
+      "role": "Main-Node"
+    }
+  ],
+  "services": {
+    "maya": {
+      "name": "Maya",
+      "color": "#8b7cff",
+      "ui": "/"
+    },
+    "basalt": {
+      "name": "Basalt",
+      "color": "#38bdf8",
+      "ui": "/"
+    },
+    "strata": {
+      "name": "Strata",
+      "color": "#34d399",
+      "ui": "/#monitor"
+    }
+  },
+  "miners": {}
+}

@@ -1,0 +1,12 @@
+[Unit]
+Description=Cloudflare-Tunnel fuer das Cluster-Dashboard
+After=network-online.target cluster-dashboard.service
+Wants=cluster-dashboard.service
+
+[Service]
+ExecStart=%h/tools/cluster-dashboard/tunnel.sh
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=default.target

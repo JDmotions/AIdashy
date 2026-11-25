@@ -1,0 +1,171 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Cluster · Konfiguration</title>
+<style>
+:root{--bg:#19191d;--side:#111114;--card:#222227;--inset:#1b1b20;--fill:#2a2a30;--line:#2e2e35;--line2:#3d3d46;
+  --ink:#ececf1;--soft:#c9c9d3;--muted:#9d9daa;--accent:#8b7cff;--ok:#34d399;--warn:#fbbf24;--bad:#fb7185;
+  --mono:ui-monospace,"SF Mono","Cascadia Code",Consolas,"Liberation Mono",monospace;--font:"Outfit",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:14px/1.45 var(--font)}
+header{position:sticky;top:0;z-index:5;background:var(--side);border-bottom:1px solid var(--line);padding:12px 20px;display:flex;gap:12px;align-items:center}
+h1{margin:0;font-size:18px;font-weight:600}
+main{padding:18px 20px 60px;max-width:1100px;margin:0 auto;display:grid;gap:16px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:16px}
+h2{margin:0 0 4px;font-size:15px;font-weight:600}
+.hint{color:var(--muted);font-size:12.5px;margin:0 0 12px}
+table{width:100%;border-collapse:collapse}
+th{color:var(--muted);font-weight:500;font-size:11.5px;text-transform:uppercase;letter-spacing:.5px;text-align:left;padding:4px 6px}
+td{padding:4px 6px;vertical-align:middle}
+input{width:100%;background:var(--inset);border:1px solid var(--line2);border-radius:8px;color:var(--ink);padding:6px 9px;font:13px var(--font)}
+input:focus{outline:none;border-color:var(--accent)}
+input.mono{font-family:var(--mono);font-size:12.5px}
+input[type=color]{padding:2px;height:32px;width:48px}
+button{background:var(--fill);color:var(--soft);border:1px solid var(--line2);border-radius:999px;padding:6px 14px;font:13px var(--font);cursor:pointer;white-space:nowrap}
+button:hover{color:var(--ink);border-color:var(--accent)}
+button.primary{background:var(--accent);color:#0b0c18;border-color:var(--accent);font-weight:600}
+button.x{padding:4px 10px;color:var(--muted)}
+button.x:hover{border-color:var(--bad);color:var(--bad)}
+.grid2{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px}
+label{display:block;font-size:12px;color:var(--muted);margin-bottom:4px}
+.disc{font-family:var(--mono);font-size:12px;color:var(--soft);margin-top:2px}
+.disc .ok{color:var(--ok)} .disc .bad{color:var(--bad)}
+#msg{margin-left:auto;font-size:13px}
+#msg.ok{color:var(--ok)} #msg.bad{color:var(--bad)}
+.row-actions{display:flex;gap:8px;margin-top:10px}
+</style>
+</head>
+<body>
+<header>
+  <button onclick="location.href='./'">← Dashboard</button>
+  <h1>Konfiguration</h1>
+  <span id="msg"></span>
+  <button id="exp" title="ohne API-Keys und Login – zum Weitergeben oder als Vorlage">⇩ Export</button>
+  <button id="expS" title="komplett inkl. API-Keys und Passwort-Hash – nur im LAN, sicher aufbewahren">⇩ Export + Geheimnisse</button>
+  <button id="imp" title="Export-Datei laden (Login wird nie überschrieben)">⇧ Import</button>
+  <input type="file" id="impF" accept=".json,application/json" hidden>
+  <button class="primary" id="save">Speichern</button>
+</header>
+<main>
+  <section class="card">
+    <h2>Rechner</h2>
+    <p class="hint">Pro Rechner wird der Port-Bereich abgesucht. Welche Engine läuft (Maya, Basalt, Strata …), erkennt das Dashboard selbst über <code>/v1/status → service</code>. Zieht ein Modell auf einen anderen Rechner um, erscheint es automatisch dort. Es werden nur private LAN- oder Tailscale-Adressen abgefragt.</p>
+    <table><thead><tr><th style="width:22%">Host / IP</th><th style="width:18%">Name</th><th>Rolle</th><th style="width:30%">Erkannt</th><th></th></tr></thead><tbody id="machines"></tbody></table>
+    <div class="row-actions"><button id="addM">+ Rechner</button><button id="scanAll">Alle jetzt suchen</button></div>
+  </section>
+
+  <section class="card">
+    <h2>Engines (Darstellung)</h2>
+    <p class="hint">Zuordnung über den <code>service</code>-Namen, den der Server meldet. Unbekannte Engines erscheinen trotzdem, nur grau und mit dem Namen aus <code>service</code>. Der UI-Pfad wird an <code>http://host:port</code> angehängt und ergibt den Link „Monitor ↗“.</p>
+    <table><thead><tr><th style="width:22%">service</th><th style="width:22%">Anzeigename</th><th style="width:10%">Farbe</th><th>UI-Pfad</th><th></th></tr></thead><tbody id="services"></tbody></table>
+    <div class="row-actions"><button id="addS">+ Engine</button></div>
+  </section>
+
+  <section class="card">
+    <h2>API-Keys</h2>
+    <p class="hint">Bei jedem gefundenen Server werden die Keys der Reihe nach ausprobiert, der erste passende wird genommen. Gespeicherte Keys sind maskiert und bleiben erhalten, solange du sie nicht ersetzt. Key-Dateien sind JSON-Dateien mit einem Feld <code>api_key</code>, etwa die Run-Config von Maya. Sie werden bei jeder Suche neu gelesen.</p>
+    <table><tbody id="keys"></tbody></table>
+    <div class="row-actions"><button id="addK">+ Key</button></div>
+    <h2 style="margin-top:16px">Key-Dateien</h2>
+    <table><tbody id="keyfiles"></tbody></table>
+    <div class="row-actions"><button id="addF">+ Datei</button></div>
+  </section>
+
+  <section class="card">
+    <h2>Abfrage</h2>
+    <div class="grid2">
+      <div><label>Port-Bereich (Suche)</label><input class="mono" id="scan_ports" placeholder="8080-8099,1234"></div>
+      <div><label>Neu suchen alle … s</label><input id="rediscover_s" type="number" min="5"></div>
+      <div><label>Dashboard-Aktualisierung (s)</label><input id="poll_s" type="number" min="1" step="0.5"></div>
+      <div><label>Timeout pro Abfrage (s)</label><input id="timeout_s" type="number" min="1" step="0.5"></div>
+      <div><label>Dashboard-Port (Neustart nötig)</label><input id="port" type="number"></div>
+      <div><label>Bind-Adresse (Neustart nötig)</label><input class="mono" id="host"></div>
+    </div>
+  </section>
+</main>
+<script>
+const $=s=>document.querySelector(s);
+const esc=s=>String(s??"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+let CFG=null;
+const msg=(t,ok)=>{const m=$("#msg");m.textContent=t;m.className=ok?"ok":"bad";};
+
+function mRow(m={}){const tr=document.createElement("tr");
+  tr.innerHTML=`<td><input class="mono" data-k="host" value="${esc(m.host)}" placeholder="192.168.0.x"></td><td><input data-k="name" value="${esc(m.name)}"></td><td><input data-k="role" value="${esc(m.role)}"></td><td><div class="disc">–</div></td><td><button class="x" title="Jetzt suchen" data-a="scan">⟳</button> <button class="x" data-a="del">✕</button></td>`;
+  tr.querySelector('[data-a=del]').onclick=()=>tr.remove();
+  tr.querySelector('[data-a=scan]').onclick=()=>scan(tr);
+  $("#machines").append(tr);return tr;}
+function sRow(id="",s={}){const tr=document.createElement("tr");
+  tr.innerHTML=`<td><input class="mono" data-k="id" value="${esc(id)}" placeholder="maya"></td><td><input data-k="name" value="${esc(s.name)}"></td><td><input type="color" data-k="color" value="${esc(s.color||"#9d9daa")}"></td><td><input class="mono" data-k="ui" value="${esc(s.ui||"/")}"></td><td><button class="x">✕</button></td>`;
+  tr.querySelector("button").onclick=()=>tr.remove();$("#services").append(tr);}
+function kRow(k){const tr=document.createElement("tr");
+  if(k&&k.mask!==undefined){tr.dataset.keep=k.index;
+    tr.innerHTML=`<td><input class="mono" value="${esc(k.mask)}" disabled></td><td style="width:1%"><button class="x" data-a="rep">ersetzen</button></td><td style="width:1%"><button class="x" data-a="del">✕</button></td>`;
+    tr.querySelector('[data-a=rep]').onclick=()=>{delete tr.dataset.keep;const i=tr.querySelector("input");i.disabled=false;i.value="";i.type="password";i.placeholder="neuer Key";i.focus();};
+  }else{tr.innerHTML=`<td><input class="mono" type="password" placeholder="neuer Key"></td><td></td><td style="width:1%"><button class="x" data-a="del">✕</button></td>`;}
+  tr.querySelector('[data-a=del]').onclick=()=>tr.remove();$("#keys").append(tr);}
+function fRow(f=""){const tr=document.createElement("tr");
+  tr.innerHTML=`<td><input class="mono" value="${esc(f)}" placeholder="/pfad/zur/run-config.json"></td><td style="width:1%"><button class="x">✕</button></td>`;
+  tr.querySelector("button").onclick=()=>tr.remove();$("#keyfiles").append(tr);}
+
+function fill(c){CFG=c;
+  ["machines","services","keys","keyfiles"].forEach(id=>$("#"+id).innerHTML="");
+  (c.machines||[]).forEach(mRow);
+  Object.entries(c.services||{}).forEach(([k,v])=>sRow(k,v));
+  (c.keys||[]).forEach(kRow);(c.key_files||[]).forEach(fRow);
+  for(const k of ["scan_ports","rediscover_s","poll_s","timeout_s","port","host"]) $("#"+k).value=c[k]??(k==="poll_s"?2:"");
+}
+function gather(){
+  const val=(tr,k)=>tr.querySelector(`[data-k=${k}]`).value.trim();
+  const services={};
+  for(const tr of $("#services").children){const id=val(tr,"id").toLowerCase();if(id) services[id]={name:val(tr,"name"),color:val(tr,"color"),ui:val(tr,"ui")};}
+  return {
+    machines:[...$("#machines").children].map(tr=>({host:val(tr,"host"),name:val(tr,"name"),role:val(tr,"role")})).filter(m=>m.host),
+    services,
+    keys:[...$("#keys").children].map(tr=>tr.dataset.keep!==undefined?{keep:+tr.dataset.keep}:{value:tr.querySelector("input").value}).filter(k=>k.keep!==undefined||k.value.trim()),
+    key_files:[...$("#keyfiles").children].map(tr=>tr.querySelector("input").value.trim()).filter(Boolean),
+    scan_ports:$("#scan_ports").value, rediscover_s:+$("#rediscover_s").value, poll_s:+$("#poll_s").value,
+    timeout_s:+$("#timeout_s").value, port:+$("#port").value, host:$("#host").value.trim()};
+}
+async function post(url,body){const r=await fetch(url,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body)});if(r.status===401){location.href="login";throw "login";}return [r.ok,await r.json()];}
+async function save(){
+  const [ok,d]=await post("api/config",gather());
+  if(ok){fill(d.config);msg("Gespeichert"+(d.notes?.length?" – "+d.notes.join(" "):""),true);}
+  else msg("Fehler: "+(d.errors||[]).join(", "),false);
+  return ok;
+}
+async function scan(tr){
+  const host=tr.querySelector("[data-k=host]").value.trim(), out=tr.querySelector(".disc");
+  if(!host){out.textContent="–";return;}
+  out.textContent="suche …";
+  try{const [ok,d]=await post("api/discover",{host});
+    if(!ok){out.innerHTML=`<span class="bad">${esc((d.errors||[]).join(", "))}</span>`;return;}
+    out.innerHTML=d.servers.length?d.servers.map(s=>`<span class="${s.error?"bad":"ok"}">${esc(s.service)}</span> :${s.port} · Key ${esc(s.auth)}`).join("<br>")+` <span style="color:var(--muted)">(${d.ms} ms)</span>`
+      :`<span class="bad">nichts gefunden</span> <span style="color:var(--muted)">(${d.ms} ms)</span>`;
+  }catch(e){out.innerHTML=`<span class="bad">${esc(e)}</span>`;}
+}
+$("#save").onclick=save;
+async function dl(url){const r=await fetch(url,{cache:"no-store"});if(r.status===401){location.href="login";return;}
+  if(!r.ok){const d=await r.json().catch(()=>({}));msg("Fehler: "+(d.errors||[r.status]).join(", "),false);return;}
+  const name=(r.headers.get("Content-Disposition")||"").match(/filename="([^"]+)"/)?.[1]||"cluster-dashboard-config.json";
+  const a=document.createElement("a");a.href=URL.createObjectURL(await r.blob());a.download=name;a.click();URL.revokeObjectURL(a.href);msg("Exportiert: "+name,true);}
+$("#exp").onclick=()=>dl("api/config/export");
+$("#expS").onclick=()=>{if(confirm("Export MIT API-Keys und Passwort-Hash?\nDie Datei wie ein Passwort behandeln (nicht mailen, nicht ins Git)."))dl("api/config/export?secrets=1");};
+$("#imp").onclick=()=>$("#impF").click();
+$("#impF").onchange=async e=>{const f=e.target.files[0];e.target.value="";if(!f)return;
+  let data;try{data=JSON.parse(await f.text());}catch{msg("Import: keine gültige JSON-Datei",false);return;}
+  const n=(data.machines||[]).length;
+  if(!confirm(`Konfiguration aus „${f.name}“ übernehmen?\n${n} Rechner, ${Object.keys(data.services||{}).length} Engines, ${(data.keys||[]).length?"mit":"ohne"} API-Keys.\nAktuelle Einstellungen werden ersetzt (Sicherung: config.json.bak).`))return;
+  const [ok,d]=await post("api/config/import",data);
+  if(ok){fill(d.config);msg("Importiert"+(d.notes?.length?" – "+d.notes.join(" · "):""),true);for(const tr of $("#machines").children) scan(tr);}
+  else msg("Import abgelehnt: "+(d.errors||[]).join(", "),false);};
+$("#addM").onclick=()=>mRow().querySelector("input").focus();
+$("#addS").onclick=()=>sRow();
+$("#addK").onclick=()=>kRow();
+$("#addF").onclick=()=>fRow();
+$("#scanAll").onclick=async()=>{ if(!await save()) return; for(const tr of $("#machines").children) scan(tr); };
+fetch("api/config").then(r=>{if(r.status===401){location.href="login";throw "login"}return r.json()}).then(c=>{fill(c);for(const tr of $("#machines").children) scan(tr);});
+</script>
+</body>
+</html>

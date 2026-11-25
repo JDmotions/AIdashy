@@ -1,0 +1,20 @@
+# Laufzeit-Konfiguration mit API-Keys und Login-Hash - nie einchecken (Vorlage: config.default.json)
+config.json
+config.json.bak
+config.tmp
+*-MIT-GEHEIMNISSEN-*.json
+# SSH-Schluessel fuer die Miner-Steuerung
+keys/
+# Laufzeitdaten
+peaks.json
+miner-actions.log
+tunnel.log
+tunnel.url
+tunnel.url.last
+shots/
+__pycache__/
+# Binaerdatei (Download: github.com/cloudflare/cloudflared/releases)
+bin/cloudflared
+# alte Staende und Fremd-Referenz
+*.v1
+ref-strata-fleet-v28/
