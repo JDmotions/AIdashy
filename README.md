@@ -1,4 +1,6 @@
-# Cluster-Dashboard
+# AIdashy
+
+A configurable dashboard for multiple different AI models. For the start, Strata, Project Maya and Basalt are included.
 
 Telemetrie für mehrere LLM-Server (Maya / Basalt / Strata) im LAN: Auslastung, VRAM, Leistung,
 Durchsatz, letzte Requests, Miner-Steuerung. Ein Python-Prozess ohne Abhängigkeiten (nur Standardbibliothek).
