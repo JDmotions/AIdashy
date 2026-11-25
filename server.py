@@ -29,6 +29,41 @@ import socket
 import threading
 
 
+I18N_DIR = ROOT / "i18n"
+_I18N = {}
+
+
+def i18n_langs():
+    out = []
+    for f in sorted(I18N_DIR.glob("*.json")):
+        try:
+            out.append({"code": f.stem, "name": json.loads(f.read_text()).get("_meta.name", f.stem)})
+        except Exception:
+            pass
+    return out
+
+
+def T(lang, key, **p):
+    """Text in Sprache lang (Fallback Englisch, dann Schluessel)."""
+    for code in (lang, "en"):
+        if code not in _I18N:
+            try:
+                _I18N[code] = json.loads((I18N_DIR / f"{code}.json").read_text())
+            except Exception:
+                _I18N[code] = {}
+        if key in _I18N[code]:
+            s = _I18N[code][key]
+            for k, v in p.items():
+                s = s.replace("{" + k + "}", str(v))
+            return s
+    return key
+
+
+def M(key, **p):
+    """Meldung als (Schluessel, Parameter) - wird erst beim Antworten in die Sprache des Clients uebersetzt."""
+    return (key, p)
+
+
 def all_keys():
     keys = list(CFG.get("keys") or [])
     for f in CFG.get("key_files") or []:
@@ -97,7 +132,7 @@ def probe(host, port):
         service = (st.get("service") or h.get("service") or "llm").lower()
         return {"host": host, "port": port, "url": base, "key": key, "service": service}
     return {"host": host, "port": port, "url": base, "key": None, "service": (h.get("service") or "llm").lower(),
-            "auth_error": "kein passender API-Key (config.json: keys / key_files)"}
+            "auth_error": "kein passender API-Key (config.json: keys / key_files)", "auth_code": "err.no_key"}
 
 
 DISC = {}            # host -> {"at": t, "servers": [...]}
@@ -199,6 +234,7 @@ def normalize(node, m, st, sav):
         d_off = sum(num(r.get("drafts_offered"), 0) for r in reqs)
         d_acc = sum(num(r.get("drafts_accepted"), 0) for r in reqs)
         drafts_scope = f"letzte {len(reqs)}"
+    drafts_n = None if drafts_scope == "gesamt" else len(reqs)
     hits = [r["hit_rate"] for r in reqs if num(r.get("hit_rate")) is not None]
     tiers = (m.get("tiers") or {}).get("now") or {}
     peak = (t.get("peak_decode") or {}).get("tok_s")
@@ -246,11 +282,12 @@ def normalize(node, m, st, sav):
             "decode_avg": output / dms * 1000 if dms else None,
             "prefill_avg": (prompt - reused) / pms * 1000 if pms else None,
             "drafts_offered": d_off, "drafts_accepted": d_acc,
-            "draft_acc_pct": d_acc / d_off * 100 if d_off else None, "drafts_scope": drafts_scope,
+            "draft_acc_pct": d_acc / d_off * 100 if d_off else None, "drafts_scope": drafts_scope, "drafts_n": drafts_n,
             "peak_decode": peak, "peak_scope": peak_scope, "best_prefill": best_pf,
         },
         "expert_hit": tiers.get("vram_hit") if tiers else (sum(hits) / len(hits) if hits else None),
         "expert_hit_scope": "jetzt (Tiers)" if tiers else f"Ø letzte {len(hits)}",
+        "expert_hit_n": None if tiers else len(hits),
         "tiers": ({"vram_used": tiers.get("vram_used"), "vram_slots": tiers.get("vram_slots"),
                    "ram_used": tiers.get("ram_used"), "ram_slots": tiers.get("ram_slots"),
                    "ram_fetch": tiers.get("ram_fetch"), "disk": tiers.get("disk"),
@@ -286,7 +323,7 @@ def collect(machine, srv):
             "url": srv["url"], "key": srv["key"], "service": srv["service"]}
     pub = {k: v for k, v in node.items() if k not in ("url", "key")}
     if srv.get("auth_error"):
-        return {**pub, "online": False, "error": srv["auth_error"], "latency_ms": 0}
+        return {**pub, "online": False, "error": srv["auth_error"], "error_code": "err.no_key", "latency_ms": 0}
     try:
         with ThreadPoolExecutor(3) as ex:
             fm = ex.submit(get, node, "/metrics")
@@ -314,10 +351,12 @@ def collect_machine(machine):
                  "role": machine.get("role"), "host": machine["host"], "color": "#9d9daa", "ui": None,
                  "online": False, "latency_ms": 0,
                  "error": (f'kein LLM-Server gefunden (Ports {CFG.get("scan_ports", "8080-8099")})'
-                           if private_host(machine["host"]) else "keine private LAN-/Tailscale-Adresse – nicht abgefragt")}]
+                           if private_host(machine["host"]) else "keine private LAN-/Tailscale-Adresse – nicht abgefragt"),
+                 "error_code": "err.no_server" if private_host(machine["host"]) else "err.not_private",
+                 "error_params": {"ports": CFG.get("scan_ports", "8080-8099")}}]
     with ThreadPoolExecutor(len(servers)) as ex:
         out = list(ex.map(lambda s: collect(machine, s), servers))
-    if any(not d["online"] and not d.get("error", "").startswith("kein") for d in out):
+    if any(not d["online"] and not d.get("error_code") for d in out):
         with DISC_LOCK:
             DISC.pop(machine["host"], None)        # beim naechsten Tick neu suchen
     return out
@@ -430,7 +469,7 @@ def miner_refresh(host):
     if not cfg:
         return
     if cfg.get("enabled") is False:
-        st = {"available": False, "note": cfg.get("note") or "deaktiviert"}
+        st = {"available": False, "note": cfg.get("note") or "deaktiviert", **({} if cfg.get("note") else {"note_code": "miner.disabled"})}
     else:
         try:
             rc, out = _miner_run(host, cfg, "status")
@@ -472,9 +511,9 @@ def miner_status():
 def miner_action(host, action):
     cfg = (CFG.get("miners") or {}).get(host)
     if not cfg or action not in ("start", "stop"):
-        return False, "unbekannter Rechner oder Aktion"
+        return False, M("srv.unknown_miner")
     if cfg.get("enabled") is False:
-        return False, cfg.get("note") or "deaktiviert"
+        return False, cfg.get("note") or M("miner.disabled")
     with MINER_LOCK:
         MINER.setdefault(host, {})["pending"] = action
     try:
@@ -544,17 +583,17 @@ def fail(client):
         FAILS.setdefault(client, []).append(time.time())
 
 
-LOGIN_HTML = """<!doctype html><html lang="de"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Cluster · Login</title><style>
+LOGIN_HTML = """<!doctype html><html lang="%LANG%"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>%T:login.title%</title><style>
 body{margin:0;min-height:100vh;display:grid;place-items:center;background:#19191d;color:#ececf1;font:14px system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
 form{background:#222227;border:1px solid #2e2e35;border-radius:16px;padding:28px;width:min(340px,90vw);display:grid;gap:12px}
 h1{margin:0 0 4px;font-size:18px;font-weight:600} input{background:#1b1b20;border:1px solid #3d3d46;border-radius:8px;color:#ececf1;padding:9px 11px;font-size:14px}
 input:focus{outline:none;border-color:#8b7cff} button{background:#8b7cff;color:#0b0c18;border:0;border-radius:999px;padding:9px;font-weight:600;font-size:14px;cursor:pointer}
-.e{color:#fb7185;font-size:13px;min-height:1em}</style></head><body>
-<form method="post" action="login"><h1>Cluster-Telemetrie</h1>
-<input name="user" placeholder="Benutzer" autocomplete="username" autofocus required>
-<input name="password" type="password" placeholder="Passwort" autocomplete="current-password" required>
-<div class="e">%ERR%</div><button>Anmelden</button></form></body></html>"""
+.e{color:#fb7185;font-size:13px;min-height:1em} .l{text-align:center;font-size:12px} .l a{color:#9d9daa;margin:0 6px}</style></head><body>
+<form method="post" action="login"><h1>%T:app.title%</h1>
+<input name="user" placeholder="%T:login.user%" autocomplete="username" autofocus required>
+<input name="password" type="password" placeholder="%T:login.password%" autocomplete="current-password" required>
+<div class="e">%ERR%</div><button>%T:login.submit%</button><div class="l">%LANGS%</div></form></body></html>"""
 
 
 def mask(k):
@@ -590,20 +629,20 @@ def check_miners(miners):
     import re
     out, err = {}, []
     if not isinstance(miners, dict):
-        return {}, ["miners: Objekt erwartet"]
+        return {}, [M("srv.miners_obj")]
     for host, m in miners.items():
         if not isinstance(m, dict):
-            err.append(f"miners.{host}: Objekt erwartet"); continue
+            err.append(M("srv.miner_obj", host=host)); continue
         kind = m.get("kind")
         if kind == "systemd":
             if not re.fullmatch(r"[\w@.-]+\.service", str(m.get("unit", ""))):
-                err.append(f"miners.{host}: unit muss *.service sein"); continue
+                err.append(M("srv.miner_unit", host=host)); continue
         elif kind == "ssh":
             miss = [k for k in ("user", "start", "stop", "status") if not str(m.get(k, "")).strip()]
             if miss:
-                err.append(f"miners.{host}: fehlt {', '.join(miss)}"); continue
+                err.append(M("srv.miner_missing", host=host, fields=", ".join(miss))); continue
         else:
-            err.append(f"miners.{host}: kind muss systemd oder ssh sein"); continue
+            err.append(M("srv.miner_kind", host=host)); continue
         out[str(host)] = m
     return out, err
 
@@ -612,7 +651,7 @@ def import_config(data, allow_privileged):
     """Export-Datei uebernehmen. Fehlende Keys -> bestehende behalten. Login (auth) wird nie importiert,
     damit man sich nicht aussperrt. Miner-Befehle nur aus dem LAN (nicht ueber den Tunnel)."""
     if not isinstance(data, dict) or not isinstance(data.get("machines"), list):
-        return False, ["keine Dashboard-Konfiguration (machines fehlt)"], []
+        return False, [M("srv.no_config")], []
     notes = []
     new = {k: data.get(k, CFG.get(k)) for k in ("port", "host", "timeout_s", "poll_s", "rediscover_s",
                                                   "scan_ports", "key_files", "machines", "services")}
@@ -621,7 +660,7 @@ def import_config(data, allow_privileged):
         new["keys"] = [{"value": k} for k in imp_keys]
     else:
         new["keys"] = [{"keep": i} for i in range(len(CFG.get("keys") or []))]
-        notes.append("Datei ohne API-Keys - bestehende Keys behalten")
+        notes.append(M("srv.keys_kept"))
     miners = None
     if "miners" in data:
         if allow_privileged:
@@ -629,9 +668,9 @@ def import_config(data, allow_privileged):
             if merr:
                 return False, merr, []
         else:
-            notes.append("Miner-Einstellungen ueber den Tunnel nicht importiert (nur im LAN)")
+            notes.append(M("srv.miners_tunnel"))
     if "auth" in data:
-        notes.append("Login (auth) wird nie importiert - bestehender Login bleibt")
+        notes.append(M("srv.auth_never"))
     new["machines"] = [m for m in new.get("machines") or [] if isinstance(m, dict)]
     new["services"] = {k: v for k, v in (new.get("services") or {}).items() if isinstance(v, dict)} \
         if isinstance(new.get("services"), dict) else {}
@@ -639,7 +678,7 @@ def import_config(data, allow_privileged):
     try:
         ok, msgs = apply_config(new, miners=miners)
     except (TypeError, ValueError) as ex:
-        return False, [f"ungueltiger Wert: {ex}"], []
+        return False, [M("srv.invalid_value", e=ex)], []
     return ok, msgs, notes + (msgs if ok else [])
 
 
@@ -653,14 +692,14 @@ def apply_config(new, miners=None):
             continue
         machines.append({"host": host, "name": str(m.get("name") or host).strip(), "role": str(m.get("role") or "").strip()})
     if not machines:
-        err.append("mindestens ein Rechner")
+        err.append(M("srv.min_machine"))
     try:
         ports = str(new.get("scan_ports", "")).replace(" ", "")
         old = CFG.get("scan_ports"); CFG["scan_ports"] = ports; n = len(scan_ports()); CFG["scan_ports"] = old
         if not 0 < n <= 2000:
-            err.append("Port-Bereich: 1–2000 Ports")
+            err.append(M("srv.port_range"))
     except Exception:
-        err.append("Port-Bereich ungueltig (z. B. 8080-8099,1234)")
+        err.append(M("srv.port_invalid"))
     keys = []
     for k in new.get("keys") or []:
         if isinstance(k, dict) and "keep" in k and 0 <= int(k["keep"]) < len(CFG.get("keys") or []):
@@ -699,7 +738,7 @@ def apply_config(new, miners=None):
     CFG.clear(); CFG.update(cfg)
     with DISC_LOCK:
         DISC.clear()
-    return True, (["Port/Host greifen erst nach Neustart: systemctl --user restart cluster-dashboard"] if restart else [])
+    return True, ([M("srv.restart")] if restart else [])
 
 
 class H(BaseHTTPRequestHandler):
@@ -724,7 +763,7 @@ class H(BaseHTTPRequestHandler):
         chrome = shutil.which("google-chrome") or shutil.which("chromium")
         node = shutil.which("node")
         if not chrome or not node:
-            return self._send(500, b"Chrome oder Node fehlt", "text/plain")
+            return self._send(500, T(self._lang(), "srv.shot_missing").encode(), "text/plain; charset=utf-8")
         with SHOT_LOCK, tempfile.TemporaryDirectory(prefix="cd-shot-") as tmp:
             out = Path(tmp) / "shot.png"
             url = f"http://127.0.0.1:{CFG.get('port', 8095)}/?stil={stil}&hideip={hide}&alle=1&kopf=1"
@@ -732,9 +771,9 @@ class H(BaseHTTPRequestHandler):
                 r = subprocess.run([node, str(ROOT / "bin" / "shot.mjs"), url, str(w), str(dpr), str(mobile), str(out)],
                                    capture_output=True, text=True, timeout=90, env={**os.environ, "CHROME": chrome})
             except subprocess.TimeoutExpired:
-                return self._send(504, b"Screenshot Timeout", "text/plain")
+                return self._send(504, T(self._lang(), "srv.shot_timeout").encode(), "text/plain; charset=utf-8")
             if r.returncode or not out.is_file():
-                return self._send(500, f"Screenshot fehlgeschlagen: {r.stderr[-300:]}".encode(), "text/plain")
+                return self._send(500, T(self._lang(), "srv.shot_failed", e=r.stderr[-300:]).encode(), "text/plain; charset=utf-8")
             body = out.read_bytes()
         self.send_response(200)
         self.send_header("Content-Type", "image/png")
@@ -752,7 +791,30 @@ class H(BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(body)
 
+    def _lang(self):
+        """Sprache des Clients: ?lang= > Cookie cd_lang > Accept-Language > Englisch."""
+        import re as _re
+        codes = {l["code"] for l in i18n_langs()}
+        q = dict(x.split("=", 1) for x in self.path.partition("?")[2].split("&") if "=" in x)
+        c = SimpleCookie(self.headers.get("Cookie") or "")
+        for cand in [q.get("lang"), c["cd_lang"].value if c.get("cd_lang") else None,
+                     *_re.findall(r"([a-z]{2})", (self.headers.get("Accept-Language") or "").lower())]:
+            if cand in codes:
+                return cand
+        return "en" if "en" in codes else (sorted(codes) or ["en"])[0]
+
+    def _tr(self, x):
+        if isinstance(x, (tuple, list)) and len(x) == 2 and isinstance(x[0], str) and isinstance(x[1], dict):
+            return T(self._lang(), x[0], **x[1])
+        return str(x)
+
     def _json(self, code, obj):
+        if isinstance(obj, dict):   # Meldungen (Schluessel + Parameter) in die Sprache des Clients
+            for k in ("errors", "notes"):
+                if isinstance(obj.get(k), list):
+                    obj[k] = [self._tr(x) for x in obj[k]]
+            if isinstance(obj.get("error"), (tuple, list)):
+                obj["error"] = self._tr(obj["error"])
         self._send(code, json.dumps(obj, ensure_ascii=False).encode(), "application/json; charset=utf-8")
 
     # --- Login
@@ -773,14 +835,27 @@ class H(BaseHTTPRequestHandler):
 
     def _deny(self, p):
         if p.startswith("/api/"):
-            return self._json(401, {"ok": False, "errors": ["Login erforderlich"]})
+            return self._json(401, {"ok": False, "errors": [M("srv.login_required")]})
         self.send_response(302)
         self.send_header("Location", "login")
         self.send_header("Content-Length", "0")
         self.end_headers()
 
     def _login_page(self, err=""):
-        self._send(200 if not err else 401, LOGIN_HTML.replace("%ERR%", err).encode(), "text/html; charset=utf-8")
+        import html as _h
+        import re as _re
+        lang = self._lang()
+        page = _re.sub(r"%T:([\w.]+)%", lambda m: _h.escape(T(lang, m.group(1))), LOGIN_HTML)
+        langs = " ".join(f'<a href="login?lang={l["code"]}">{_h.escape(l["name"])}</a>' for l in i18n_langs())
+        page = page.replace("%LANG%", lang).replace("%LANGS%", langs).replace("%ERR%", _h.escape(T(lang, err)) if err else "")
+        self.send_response(200 if not err else 401)
+        if "lang=" in (self.path.partition("?")[2]):
+            self.send_header("Set-Cookie", f"cd_lang={lang}; Path=/; Max-Age=31536000; SameSite=Lax")
+        body = page.encode()
+        self.send_header("Content-Type", "text/html; charset=utf-8")
+        self.send_header("Content-Length", str(len(body)))
+        self.end_headers()
+        self.wfile.write(body)
 
     def _login_post(self):
         import urllib.parse
@@ -788,11 +863,11 @@ class H(BaseHTTPRequestHandler):
         f = urllib.parse.parse_qs(self.rfile.read(min(n, 4096)).decode("utf-8", "replace"))
         client = self._client()
         if locked(client):
-            return self._login_page("Zu viele Fehlversuche – 10 Minuten gesperrt.")
+            return self._login_page("login.locked")
         if not check_password((f.get("user") or [""])[0], (f.get("password") or [""])[0]):
             fail(client)
             time.sleep(1)
-            return self._login_page("Benutzer oder Passwort falsch.")
+            return self._login_page("login.wrong")
         self.send_response(302)
         secure = "; Secure" if self._via_tunnel() else ""
         self.send_header("Set-Cookie", f"cd_session={make_session(CFG['auth']['user'])}; Path=/; HttpOnly; SameSite=Lax; "
@@ -812,6 +887,17 @@ class H(BaseHTTPRequestHandler):
             self.send_header("Content-Length", "0")
             self.end_headers()
             return
+        if p == "/i18n.js":
+            return self._send(200, (ROOT / "i18n.js").read_bytes(), "text/javascript; charset=utf-8")
+        if p == "/i18n/index.json":
+            return self._json(200, i18n_langs())
+        if p.startswith("/i18n/") and p.endswith(".json"):
+            import re as _re
+            code = p[6:-5]
+            f = I18N_DIR / f"{code}.json"
+            if _re.fullmatch(r"[a-z]{2}(-[A-Z]{2})?", code) and f.is_file():
+                return self._send(200, f.read_bytes(), "application/json; charset=utf-8")
+            return self._send(404, b"not found", "text/plain")
         if self._need_login():
             return self._deny(p)
         if p == "/api/screenshot":
@@ -827,7 +913,7 @@ class H(BaseHTTPRequestHandler):
         elif p == "/api/config/export":
             secrets = "secrets=1" in q
             if secrets and self._via_tunnel():
-                return self._json(403, {"ok": False, "errors": ["Export mit Geheimnissen nur im LAN, nicht ueber den Tunnel"]})
+                return self._json(403, {"ok": False, "errors": [M("srv.export_lan")]})
             body = json.dumps(export_config(secrets), indent=2, ensure_ascii=False).encode()
             self.send_response(200)
             self.send_header("Content-Type", "application/json; charset=utf-8")
@@ -852,12 +938,12 @@ class H(BaseHTTPRequestHandler):
         # CSRF: nur von dieser Seite (fremde Origins abweisen; curl ohne Origin ist ok)
         origin = self.headers.get("Origin")
         if origin and origin.split("://", 1)[-1] != self.headers.get("Host", ""):
-            return self._json(403, {"ok": False, "errors": ["fremde Origin"]})
+            return self._json(403, {"ok": False, "errors": [M("srv.foreign_origin")]})
         try:
             n = int(self.headers.get("Content-Length") or 0)
             body = json.loads(self.rfile.read(min(n, 1 << 20)) or b"{}")
         except Exception:
-            return self._json(400, {"ok": False, "errors": ["kein JSON"]})
+            return self._json(400, {"ok": False, "errors": [M("srv.no_json")]})
         p = self.path.split("?")[0]
         if p == "/api/config":
             ok, msgs = apply_config(body)
@@ -870,6 +956,7 @@ class H(BaseHTTPRequestHandler):
         if p == "/api/miner":
             host, action = str(body.get("host", "")), str(body.get("action", ""))
             ok, err = miner_action(host, action)
+            err = self._tr(err) if isinstance(err, tuple) else err
             try:
                 with open(ROOT / "miner-actions.log", "a") as f:
                     f.write(f'{time.strftime("%Y-%m-%d %H:%M:%S")} {action} {host} ok={ok} von={self._client()}'
@@ -880,7 +967,7 @@ class H(BaseHTTPRequestHandler):
         if p == "/api/discover":
             host = str(body.get("host", "")).strip()
             if not host:
-                return self._json(400, {"ok": False, "errors": ["host fehlt"]})
+                return self._json(400, {"ok": False, "errors": [M("srv.host_missing")]})
             m = next((x for x in CFG["machines"] if x["host"] == host), {"host": host, "name": host})
             t0 = time.time()
             srv = discover(m, force=True)
@@ -888,6 +975,8 @@ class H(BaseHTTPRequestHandler):
                                     "servers": [{"port": s["port"], "service": s["service"],
                                                  "auth": "fehlt" if s.get("auth_error") else
                                                  ("ohne Key" if not s["key"] else mask(s["key"])),
+                                                 "auth_state": "missing" if s.get("auth_error") else ("none" if not s["key"] else "ok"),
+                                                 "key_mask": mask(s["key"]) if s.get("key") else None,
                                                  "error": s.get("auth_error")} for s in srv]})
         self._json(404, {"ok": False})
 

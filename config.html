@@ -1,9 +1,10 @@
 <!doctype html>
-<html lang="de">
+<html lang="en">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Cluster · Konfiguration</title>
+<title>Cluster · Settings</title>
+<script src="i18n.js"></script>
 <style>
 :root{--bg:#19191d;--side:#111114;--card:#222227;--inset:#1b1b20;--fill:#2a2a30;--line:#2e2e35;--line2:#3d3d46;
   --ink:#ececf1;--soft:#c9c9d3;--muted:#9d9daa;--accent:#8b7cff;--ok:#34d399;--warn:#fbbf24;--bad:#fb7185;
@@ -39,49 +40,50 @@ label{display:block;font-size:12px;color:var(--muted);margin-bottom:4px}
 </head>
 <body>
 <header>
-  <button onclick="location.href='./'">← Dashboard</button>
-  <h1>Konfiguration</h1>
+  <button onclick="location.href='./'" data-i18n="cfg.back"></button>
+  <h1 data-i18n="cfg.title"></h1>
   <span id="msg"></span>
-  <button id="exp" title="ohne API-Keys und Login – zum Weitergeben oder als Vorlage">⇩ Export</button>
-  <button id="expS" title="komplett inkl. API-Keys und Passwort-Hash – nur im LAN, sicher aufbewahren">⇩ Export + Geheimnisse</button>
-  <button id="imp" title="Export-Datei laden (Login wird nie überschrieben)">⇧ Import</button>
+  <button id="bLang">🌐</button>
+  <button id="exp" data-i18n="cfg.export" data-i18n-title="cfg.export_title"></button>
+  <button id="expS" data-i18n="cfg.export_s" data-i18n-title="cfg.export_s_title"></button>
+  <button id="imp" data-i18n="cfg.import" data-i18n-title="cfg.import_title"></button>
   <input type="file" id="impF" accept=".json,application/json" hidden>
-  <button class="primary" id="save">Speichern</button>
+  <button class="primary" id="save" data-i18n="cfg.save"></button>
 </header>
 <main>
   <section class="card">
-    <h2>Rechner</h2>
-    <p class="hint">Pro Rechner wird der Port-Bereich abgesucht. Welche Engine läuft (Maya, Basalt, Strata …), erkennt das Dashboard selbst über <code>/v1/status → service</code>. Zieht ein Modell auf einen anderen Rechner um, erscheint es automatisch dort. Es werden nur private LAN- oder Tailscale-Adressen abgefragt.</p>
-    <table><thead><tr><th style="width:22%">Host / IP</th><th style="width:18%">Name</th><th>Rolle</th><th style="width:30%">Erkannt</th><th></th></tr></thead><tbody id="machines"></tbody></table>
-    <div class="row-actions"><button id="addM">+ Rechner</button><button id="scanAll">Alle jetzt suchen</button></div>
+    <h2 data-i18n="cfg.machines"></h2>
+    <p class="hint" data-i18n-html="cfg.machines_hint">Pro Rechner wird der Port-Bereich abgesucht. Welche Engine läuft (Maya, Basalt, Strata …), erkennt das Dashboard selbst über <code>/v1/status → service</code>. Zieht ein Modell auf einen anderen Rechner um, erscheint es automatisch dort. Es werden nur private LAN- oder Tailscale-Adressen abgefragt.</p>
+    <table><thead><tr><th style="width:22%" data-i18n="cfg.th_host"></th><th style="width:18%" data-i18n="cfg.th_name"></th><th data-i18n="cfg.th_role"></th><th style="width:30%" data-i18n="cfg.th_found"></th><th></th></tr></thead><tbody id="machines"></tbody></table>
+    <div class="row-actions"><button id="addM" data-i18n="cfg.add_machine"></button><button id="scanAll" data-i18n="cfg.scan_all"></button></div>
   </section>
 
   <section class="card">
-    <h2>Engines (Darstellung)</h2>
-    <p class="hint">Zuordnung über den <code>service</code>-Namen, den der Server meldet. Unbekannte Engines erscheinen trotzdem, nur grau und mit dem Namen aus <code>service</code>. Der UI-Pfad wird an <code>http://host:port</code> angehängt und ergibt den Link „Monitor ↗“.</p>
-    <table><thead><tr><th style="width:22%">service</th><th style="width:22%">Anzeigename</th><th style="width:10%">Farbe</th><th>UI-Pfad</th><th></th></tr></thead><tbody id="services"></tbody></table>
-    <div class="row-actions"><button id="addS">+ Engine</button></div>
+    <h2 data-i18n="cfg.engines"></h2>
+    <p class="hint" data-i18n-html="cfg.engines_hint">Zuordnung über den <code>service</code>-Namen, den der Server meldet. Unbekannte Engines erscheinen trotzdem, nur grau und mit dem Namen aus <code>service</code>. Der UI-Pfad wird an <code>http://host:port</code> angehängt und ergibt den Link „Monitor ↗“.</p>
+    <table><thead><tr><th style="width:22%" data-i18n="cfg.th_service"></th><th style="width:22%" data-i18n="cfg.th_display"></th><th style="width:10%" data-i18n="cfg.th_color"></th><th data-i18n="cfg.th_ui"></th><th></th></tr></thead><tbody id="services"></tbody></table>
+    <div class="row-actions"><button id="addS" data-i18n="cfg.add_engine"></button></div>
   </section>
 
   <section class="card">
-    <h2>API-Keys</h2>
-    <p class="hint">Bei jedem gefundenen Server werden die Keys der Reihe nach ausprobiert, der erste passende wird genommen. Gespeicherte Keys sind maskiert und bleiben erhalten, solange du sie nicht ersetzt. Key-Dateien sind JSON-Dateien mit einem Feld <code>api_key</code>, etwa die Run-Config von Maya. Sie werden bei jeder Suche neu gelesen.</p>
+    <h2 data-i18n="cfg.keys"></h2>
+    <p class="hint" data-i18n-html="cfg.keys_hint">Bei jedem gefundenen Server werden die Keys der Reihe nach ausprobiert, der erste passende wird genommen. Gespeicherte Keys sind maskiert und bleiben erhalten, solange du sie nicht ersetzt. Key-Dateien sind JSON-Dateien mit einem Feld <code>api_key</code>, etwa die Run-Config von Maya. Sie werden bei jeder Suche neu gelesen.</p>
     <table><tbody id="keys"></tbody></table>
-    <div class="row-actions"><button id="addK">+ Key</button></div>
-    <h2 style="margin-top:16px">Key-Dateien</h2>
+    <div class="row-actions"><button id="addK" data-i18n="cfg.add_key"></button></div>
+    <h2 style="margin-top:16px" data-i18n="cfg.keyfiles"></h2>
     <table><tbody id="keyfiles"></tbody></table>
-    <div class="row-actions"><button id="addF">+ Datei</button></div>
+    <div class="row-actions"><button id="addF" data-i18n="cfg.add_file"></button></div>
   </section>
 
   <section class="card">
-    <h2>Abfrage</h2>
+    <h2 data-i18n="cfg.query"></h2>
     <div class="grid2">
-      <div><label>Port-Bereich (Suche)</label><input class="mono" id="scan_ports" placeholder="8080-8099,1234"></div>
-      <div><label>Neu suchen alle … s</label><input id="rediscover_s" type="number" min="5"></div>
-      <div><label>Dashboard-Aktualisierung (s)</label><input id="poll_s" type="number" min="1" step="0.5"></div>
-      <div><label>Timeout pro Abfrage (s)</label><input id="timeout_s" type="number" min="1" step="0.5"></div>
-      <div><label>Dashboard-Port (Neustart nötig)</label><input id="port" type="number"></div>
-      <div><label>Bind-Adresse (Neustart nötig)</label><input class="mono" id="host"></div>
+      <div><label data-i18n="cfg.l_ports"></label><input class="mono" id="scan_ports" placeholder="8080-8099,1234"></div>
+      <div><label data-i18n="cfg.l_rediscover"></label><input id="rediscover_s" type="number" min="5"></div>
+      <div><label data-i18n="cfg.l_poll"></label><input id="poll_s" type="number" min="1" step="0.5"></div>
+      <div><label data-i18n="cfg.l_timeout"></label><input id="timeout_s" type="number" min="1" step="0.5"></div>
+      <div><label data-i18n="cfg.l_port"></label><input id="port" type="number"></div>
+      <div><label data-i18n="cfg.l_host"></label><input class="mono" id="host"></div>
     </div>
   </section>
 </main>
@@ -92,7 +94,7 @@ let CFG=null;
 const msg=(t,ok)=>{const m=$("#msg");m.textContent=t;m.className=ok?"ok":"bad";};
 
 function mRow(m={}){const tr=document.createElement("tr");
-  tr.innerHTML=`<td><input class="mono" data-k="host" value="${esc(m.host)}" placeholder="192.168.0.x"></td><td><input data-k="name" value="${esc(m.name)}"></td><td><input data-k="role" value="${esc(m.role)}"></td><td><div class="disc">–</div></td><td><button class="x" title="Jetzt suchen" data-a="scan">⟳</button> <button class="x" data-a="del">✕</button></td>`;
+  tr.innerHTML=`<td><input class="mono" data-k="host" value="${esc(m.host)}" placeholder="192.168.0.x"></td><td><input data-k="name" value="${esc(m.name)}"></td><td><input data-k="role" value="${esc(m.role)}"></td><td><div class="disc">–</div></td><td><button class="x" title="${t("cfg.scan_now")}" data-i18n-title="cfg.scan_now" data-a="scan">⟳</button> <button class="x" data-a="del">✕</button></td>`;
   tr.querySelector('[data-a=del]').onclick=()=>tr.remove();
   tr.querySelector('[data-a=scan]').onclick=()=>scan(tr);
   $("#machines").append(tr);return tr;}
@@ -101,12 +103,12 @@ function sRow(id="",s={}){const tr=document.createElement("tr");
   tr.querySelector("button").onclick=()=>tr.remove();$("#services").append(tr);}
 function kRow(k){const tr=document.createElement("tr");
   if(k&&k.mask!==undefined){tr.dataset.keep=k.index;
-    tr.innerHTML=`<td><input class="mono" value="${esc(k.mask)}" disabled></td><td style="width:1%"><button class="x" data-a="rep">ersetzen</button></td><td style="width:1%"><button class="x" data-a="del">✕</button></td>`;
-    tr.querySelector('[data-a=rep]').onclick=()=>{delete tr.dataset.keep;const i=tr.querySelector("input");i.disabled=false;i.value="";i.type="password";i.placeholder="neuer Key";i.focus();};
-  }else{tr.innerHTML=`<td><input class="mono" type="password" placeholder="neuer Key"></td><td></td><td style="width:1%"><button class="x" data-a="del">✕</button></td>`;}
+    tr.innerHTML=`<td><input class="mono" value="${esc(k.mask)}" disabled></td><td style="width:1%"><button class="x" data-a="rep" data-i18n="cfg.replace">${t("cfg.replace")}</button></td><td style="width:1%"><button class="x" data-a="del">✕</button></td>`;
+    tr.querySelector('[data-a=rep]').onclick=()=>{delete tr.dataset.keep;const i=tr.querySelector("input");i.disabled=false;i.value="";i.type="password";i.placeholder=t("cfg.new_key");i.dataset.i18nPh="cfg.new_key";i.focus();};
+  }else{tr.innerHTML=`<td><input class="mono" type="password" placeholder="${t("cfg.new_key")}" data-i18n-ph="cfg.new_key"></td><td></td><td style="width:1%"><button class="x" data-a="del">✕</button></td>`;}
   tr.querySelector('[data-a=del]').onclick=()=>tr.remove();$("#keys").append(tr);}
 function fRow(f=""){const tr=document.createElement("tr");
-  tr.innerHTML=`<td><input class="mono" value="${esc(f)}" placeholder="/pfad/zur/run-config.json"></td><td style="width:1%"><button class="x">✕</button></td>`;
+  tr.innerHTML=`<td><input class="mono" value="${esc(f)}" placeholder="${t("cfg.path_ph")}" data-i18n-ph="cfg.path_ph"></td><td style="width:1%"><button class="x">✕</button></td>`;
   tr.querySelector("button").onclick=()=>tr.remove();$("#keyfiles").append(tr);}
 
 function fill(c){CFG=c;
@@ -131,41 +133,42 @@ function gather(){
 async function post(url,body){const r=await fetch(url,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body)});if(r.status===401){location.href="login";throw "login";}return [r.ok,await r.json()];}
 async function save(){
   const [ok,d]=await post("api/config",gather());
-  if(ok){fill(d.config);msg("Gespeichert"+(d.notes?.length?" – "+d.notes.join(" "):""),true);}
-  else msg("Fehler: "+(d.errors||[]).join(", "),false);
+  if(ok){fill(d.config);msg(t("cfg.saved")+(d.notes?.length?" – "+d.notes.join(" "):""),true);}
+  else msg(t("cfg.error",{e:(d.errors||[]).join(", ")}),false);
   return ok;
 }
 async function scan(tr){
   const host=tr.querySelector("[data-k=host]").value.trim(), out=tr.querySelector(".disc");
   if(!host){out.textContent="–";return;}
-  out.textContent="suche …";
+  out.textContent=t("cfg.searching");
   try{const [ok,d]=await post("api/discover",{host});
     if(!ok){out.innerHTML=`<span class="bad">${esc((d.errors||[]).join(", "))}</span>`;return;}
-    out.innerHTML=d.servers.length?d.servers.map(s=>`<span class="${s.error?"bad":"ok"}">${esc(s.service)}</span> :${s.port} · Key ${esc(s.auth)}`).join("<br>")+` <span style="color:var(--muted)">(${d.ms} ms)</span>`
-      :`<span class="bad">nichts gefunden</span> <span style="color:var(--muted)">(${d.ms} ms)</span>`;
+    out.innerHTML=d.servers.length?d.servers.map(s=>`<span class="${s.error?"bad":"ok"}">${esc(s.service)}</span> :${s.port} · ${t("cfg.key",{v:esc(s.auth_state==="ok"?s.key_mask:s.auth_state?t("cfg.auth_"+s.auth_state):s.auth)})}`).join("<br>")+` <span style="color:var(--muted)">(${d.ms} ms)</span>`
+      :`<span class="bad">${t("cfg.nothing")}</span> <span style="color:var(--muted)">(${d.ms} ms)</span>`;
   }catch(e){out.innerHTML=`<span class="bad">${esc(e)}</span>`;}
 }
 $("#save").onclick=save;
 async function dl(url){const r=await fetch(url,{cache:"no-store"});if(r.status===401){location.href="login";return;}
-  if(!r.ok){const d=await r.json().catch(()=>({}));msg("Fehler: "+(d.errors||[r.status]).join(", "),false);return;}
+  if(!r.ok){const d=await r.json().catch(()=>({}));msg(t("cfg.error",{e:(d.errors||[r.status]).join(", ")}),false);return;}
   const name=(r.headers.get("Content-Disposition")||"").match(/filename="([^"]+)"/)?.[1]||"cluster-dashboard-config.json";
-  const a=document.createElement("a");a.href=URL.createObjectURL(await r.blob());a.download=name;a.click();URL.revokeObjectURL(a.href);msg("Exportiert: "+name,true);}
+  const a=document.createElement("a");a.href=URL.createObjectURL(await r.blob());a.download=name;a.click();URL.revokeObjectURL(a.href);msg(t("cfg.exported",{name}),true);}
 $("#exp").onclick=()=>dl("api/config/export");
-$("#expS").onclick=()=>{if(confirm("Export MIT API-Keys und Passwort-Hash?\nDie Datei wie ein Passwort behandeln (nicht mailen, nicht ins Git)."))dl("api/config/export?secrets=1");};
+$("#expS").onclick=()=>{if(confirm(t("cfg.confirm_secrets")))dl("api/config/export?secrets=1");};
 $("#imp").onclick=()=>$("#impF").click();
 $("#impF").onchange=async e=>{const f=e.target.files[0];e.target.value="";if(!f)return;
-  let data;try{data=JSON.parse(await f.text());}catch{msg("Import: keine gültige JSON-Datei",false);return;}
+  let data;try{data=JSON.parse(await f.text());}catch{msg(t("cfg.bad_json"),false);return;}
   const n=(data.machines||[]).length;
-  if(!confirm(`Konfiguration aus „${f.name}“ übernehmen?\n${n} Rechner, ${Object.keys(data.services||{}).length} Engines, ${(data.keys||[]).length?"mit":"ohne"} API-Keys.\nAktuelle Einstellungen werden ersetzt (Sicherung: config.json.bak).`))return;
+  if(!confirm(t("cfg.confirm_import",{file:f.name,m:n,e:Object.keys(data.services||{}).length,keys:t((data.keys||[]).length?"cfg.with_keys":"cfg.without_keys")})))return;
   const [ok,d]=await post("api/config/import",data);
-  if(ok){fill(d.config);msg("Importiert"+(d.notes?.length?" – "+d.notes.join(" · "):""),true);for(const tr of $("#machines").children) scan(tr);}
-  else msg("Import abgelehnt: "+(d.errors||[]).join(", "),false);};
+  if(ok){fill(d.config);msg(t("cfg.imported")+(d.notes?.length?" – "+d.notes.join(" · "):""),true);for(const tr of $("#machines").children) scan(tr);}
+  else msg(t("cfg.import_rejected",{e:(d.errors||[]).join(", ")}),false);};
 $("#addM").onclick=()=>mRow().querySelector("input").focus();
 $("#addS").onclick=()=>sRow();
 $("#addK").onclick=()=>kRow();
 $("#addF").onclick=()=>fRow();
 $("#scanAll").onclick=async()=>{ if(!await save()) return; for(const tr of $("#machines").children) scan(tr); };
-fetch("api/config").then(r=>{if(r.status===401){location.href="login";throw "login"}return r.json()}).then(c=>{fill(c);for(const tr of $("#machines").children) scan(tr);});
+$("#bLang").onclick=()=>i18nNext();   // i18nApply uebersetzt auch die Tabellenzeilen, Eingaben bleiben stehen
+i18nInit().then(()=>fetch("api/config")).then(r=>{if(r.status===401){location.href="login";throw "login"}return r.json()}).then(c=>{fill(c);for(const tr of $("#machines").children) scan(tr);});
 </script>
 </body>
 </html>

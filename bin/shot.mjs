@@ -24,12 +24,16 @@ if (!tabs) { console.error("chrome startet nicht"); done(1); }
 const ws = new WebSocket(tabs.find(t => t.type === "page").webSocketDebuggerUrl);
 await new Promise(r => (ws.onopen = r));
 let id = 0; const pend = {};
-ws.onmessage = e => { const m = JSON.parse(e.data); if (pend[m.id]) { pend[m.id](m); delete pend[m.id]; } };
+ws.onmessage = e => { const m = JSON.parse(e.data); if (pend[m.id]) { pend[m.id](m); delete pend[m.id]; }
+  // DEBUG=1: JavaScript-Fehler der Seite auf stderr ausgeben
+  if (process.env.DEBUG && m.method === "Runtime.exceptionThrown") console.error("JS-Fehler:", m.params.exceptionDetails?.exception?.description || m.params.exceptionDetails?.text);
+  if (process.env.DEBUG && m.method === "Runtime.consoleAPICalled" && m.params.type === "error") console.error("console.error:", m.params.args.map(a => a.value ?? a.description).join(" ")); };
 const send = (method, params = {}) => new Promise(r => { pend[++id] = r; ws.send(JSON.stringify({ id, method, params })); });
 const evalJs = async expr => (await send("Runtime.evaluate", { expression: expr, returnByValue: true })).result.result.value;
 
 await send("Emulation.setDeviceMetricsOverride", { width: w, height: fixH || 900, deviceScaleFactor: dpr, mobile });
 if (mobile) await send("Emulation.setTouchEmulationEnabled", { enabled: true, maxTouchPoints: 5 });  // pointer:coarse wie am Handy
+if (process.env.DEBUG) await send("Runtime.enable");
 await send("Page.navigate", { url });
 // warten bis die Daten gerendert sind (Karten vorhanden), max. ~10 s
 for (let i = 0; i < 40; i++) { if (await evalJs("!!(typeof LAST!=='undefined' && LAST && document.querySelector('#nodes .card'))")) break; await sleep(250); }

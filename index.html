@@ -6,7 +6,8 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="theme-color" content="#111114">
-<title>Cluster · Maya / Basalt / Strata</title>
+<title>Cluster · Telemetry</title>
+<script src="i18n.js"></script>
 <style>
 :root{
   --bg:#19191d; --side:#111114; --card:#222227; --inset:#1b1b20; --fill:#2a2a30; --track:#34343b;
@@ -226,31 +227,31 @@ body.th-grad table th,body.th-img table th{background:transparent}
   <use class="pr2" href="#vPalm" transform="translate(1440 160) scale(-.68 .68)"/>
 </svg></div>
 <header>
-  <h1>Cluster-Telemetrie <small id="upd">verbinde …</small></h1><small id="tun" class="scope"></small><button id="bHead" class="hdtog" title="Kopfleiste ein-/ausklappen">▴</button>
+  <h1><span data-i18n="app.title">Cluster-Telemetrie</span> <small id="upd" data-i18n="hdr.connecting">verbinde …</small></h1><small id="tun" class="scope"></small><button id="bHead" class="hdtog" data-i18n-title="hdr.toggle_title">▴</button>
   <div class="kpis" id="kpis"></div>
-  <div class="btns"><button id="bTheme" title="Hintergrund umschalten">🌴 Stil: aus</button><button id="bIp">IPs ausblenden</button><button id="bSnap">Snapshot exportieren</button><button id="bShot" title="ganze Seite als PNG (serverseitig gerendert)">📷 Ganze Seite</button><button onclick="location.href='config'">⚙ Konfiguration</button></div>
+  <div class="btns"><button id="bLang">🌐</button><button id="bTheme" data-i18n-title="btn.style_title">🌴</button><button id="bIp" data-i18n="btn.ip_hide"></button><button id="bSnap" data-i18n="btn.snapshot"></button><button id="bShot" data-i18n="btn.shot" data-i18n-title="btn.shot_title"></button><button onclick="location.href='config'" data-i18n="btn.config"></button></div>
 </header>
 <main>
   <div class="card" id="kpiCard" style="--nc:var(--accent)"></div>
   <div class="card total" id="total" style="--nc:var(--accent);margin-bottom:16px"></div>
   <div class="grid" id="nodes"></div>
   <div class="grid wide" id="wide">
-    <div class="card" style="--nc:var(--accent)"><div class="sec">Vergleich <span class="scope">grün = bester Wert</span></div><table id="cmp"></table></div>
-    <div class="card" style="--nc:var(--accent)"><div class="sec">Letzte Requests (alle Nodes)</div><table id="reqs"></table></div>
+    <div class="card" style="--nc:var(--accent)"><div class="sec"><span data-i18n="sec.compare"></span> <span class="scope" data-i18n="sec.compare_hint"></span></div><table id="cmp"></table></div>
+    <div class="card" style="--nc:var(--accent)"><div class="sec" data-i18n="sec.requests"></div><table id="reqs"></table></div>
   </div>
-  <div class="foot" id="foot">Quelle: /metrics, /v1/status und /api/savings (Maya) der drei Server, über den Aggregator auf .76:8095. Engines werden pro Rechner automatisch erkannt (Port-Scan + /v1/status → service).</div>
+  <div class="foot" id="foot" data-i18n="foot"></div>
 </main>
 <nav id="tabs"></nav>
 <script>
 const colorOf=d=>d.color||"var(--accent)";
 const $=s=>document.querySelector(s);
 const esc=s=>String(s??"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
-const n=(v,d=0)=>v==null||isNaN(v)?"–":Number(v).toLocaleString("de-DE",{maximumFractionDigits:d,minimumFractionDigits:d});
+const n=(v,d=0)=>v==null||isNaN(v)?"–":Number(v).toLocaleString(I18N.locale,{maximumFractionDigits:d,minimumFractionDigits:d});
 const big=v=>v==null?"–":v>=1e9?n(v/1e9,2)+" G":v>=1e6?n(v/1e6,1)+" M":v>=1e3?n(v/1e3,1)+" k":n(v);
 const gib=b=>b==null?"–":n(b/2**30,1);
 const pct=(a,b)=>b?Math.max(0,Math.min(100,a/b*100)):0;
 const dur=s=>{if(s==null)return"–";s=Math.floor(s);const d=Math.floor(s/86400),h=Math.floor(s%86400/3600),m=Math.floor(s%3600/60);return d?`${d}d ${h}h`:h?`${h}h ${m}m`:`${m}m`};
-const ago=t=>t?dur(Date.now()/1000-t)+" her":"–";
+const ago=x=>x?t("time.ago",{d:dur(Date.now()/1000-x)}):"–";
 const cls=(v,w,b)=>v>=b?"b":v>=w?"w":"";
 function bar(p,w=80,b=92){return `<div class="bar"><i class="${cls(p,w,b)}" style="width:${p.toFixed(1)}%"></i></div>`}
 function row(l,p,v,w,b){return `<div class="row"><div class="l">${l}</div>${bar(p,w,b)}<div class="v">${v}</div></div>`}
@@ -269,100 +270,100 @@ let SHOWN_MINER=new Set();
 function minerBox(host){
   const m=LAST?.miners?.[host]; if(!m||SHOWN_MINER.has(host)) return ""; SHOWN_MINER.add(host);
   const pend=m.pending, on=pend?pend==="start":!!m.running;
-  const info=!m.available?esc(m.note||"nicht verfügbar"):pend?(pend==="start"?"startet …":"stoppt …"):m.running?
-    `<b>${hps(m.hashrate)}</b> · Shares ${m.shares?`${m.shares.accepted}/${m.shares.total}${m.shares.rejected?` (${m.shares.rejected} abgelehnt)`:""}`:"–"} · ${(m.gpus||[]).map(g=>`${g.temp}°C ${g.power||"?"}W`).join(" · ")} · ${dur(m.uptime)}`:m.paused?"pausiert (LLM aktiv, miner-gate)":"aus";
-  return `<div class="miner"><span>⛏ Miner</span><div class="mi">${info}</div><button class="sw ${on?"on":""} ${pend?"pend":""}" ${!m.available||pend?"disabled":""} title="${on?"Miner stoppen":"Miner starten"}" onclick="minerToggle('${esc(host)}',${on?"'stop'":"'start'"},this)"></button></div>`;
+  const info=!m.available?esc(m.note_code?t(m.note_code):m.note||t("miner.na")):pend?(pend==="start"?t("miner.starting"):t("miner.stopping")):m.running?
+    `<b>${hps(m.hashrate)}</b> · Shares ${m.shares?`${m.shares.accepted}/${m.shares.total}${m.shares.rejected?` (${t("miner.rejected",{n:m.shares.rejected})})`:""}`:"–"} · ${(m.gpus||[]).map(g=>`${g.temp}°C ${g.power||"?"}W`).join(" · ")} · ${dur(m.uptime)}`:m.paused?t("miner.paused"):t("miner.off");
+  return `<div class="miner"><span>${t("miner.label")}</span><div class="mi">${info}</div><button class="sw ${on?"on":""} ${pend?"pend":""}" ${!m.available||pend?"disabled":""} title="${on?t("miner.stop"):t("miner.start")}" onclick="minerToggle('${esc(host)}',${on?"'stop'":"'start'"},this)"></button></div>`;
 }
 async function minerToggle(host,action,btn){
   const name=(LAST.nodes.find(d=>d.host===host)||{}).machine||host;
-  if(!confirm(`Miner auf ${name} ${action==="start"?"starten":"stoppen"}?`)) return;
+  if(!confirm(t(action==="start"?"miner.confirm_start":"miner.confirm_stop",{name}))) return;
   LAST.miners[host]={...LAST.miners[host],pending:action}; render();
   try{const r=await fetch("api/miner",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({host,action})});
-    const d=await r.json(); LAST.miners=d.miners; render(); if(!d.ok) alert("Miner "+action+" fehlgeschlagen: "+d.error);
+    const d=await r.json(); LAST.miners=d.miners; render(); if(!d.ok) alert(t("miner.failed",{action,err:d.error}));
   }catch(e){alert(e)}
 }
 const isBusy=d=>d.online&&(d.state&&d.state!=="idle"&&d.state!=="loaded"||d.in_flight>0||d.phase);
 
 function card(d){
   const c=colorOf(d);
-  if(!d.online) return `<div class="card" style="--nc:var(--bad)"><div class="nh"><span class="dot off"></span><div><h2>${esc(d.name)}</h2><div class="sub">${esc(d.machine||"")}${d.role?" · "+esc(d.role):""} · ${ip(d.host)}${d.port?":"+d.port:""}</div></div>${d.ui?`<a href="${esc(d.ui)}" target="_blank">öffnen ↗</a>`:""}</div><div class="err">${d.port?"offline / nicht erreichbar":"kein Engine-Server aktiv"}<br>${esc(d.error)}</div>${minerBox(d.host)}</div>`;
-  const t=d.totals, busy=isBusy(d), h=d.history;
+  if(!d.online) return `<div class="card" style="--nc:var(--bad)"><div class="nh"><span class="dot off"></span><div><h2>${esc(d.name)}</h2><div class="sub">${esc(d.machine||"")}${d.role?" · "+esc(d.role):""} · ${ip(d.host)}${d.port?":"+d.port:""}</div></div>${d.ui?`<a href="${esc(d.ui)}" target="_blank">${t("node.open")}</a>`:""}</div><div class="err">${d.port?t("node.offline"):t("node.no_engine")}<br>${esc(d.error_code?t(d.error_code,d.error_params):d.error)}</div>${minerBox(d.host)}</div>`;
+  const T=d.totals, busy=isBusy(d), h=d.history;
   const vramU=d.gpus.reduce((a,g)=>a+(g.mem_used||0),0), vramT=d.gpus.reduce((a,g)=>a+(g.mem_total||0),0);
   const powU=d.gpus.reduce((a,g)=>a+(g.power||0),0), powL=d.gpus.reduce((a,g)=>a+(g.power_limit||0),0);
-  let liveTxt = busy ? `${esc(d.phase||d.state)}${d.live_prompt[1]?` · Prompt ${big(d.live_prompt[0])}/${big(d.live_prompt[1])}`:""}${d.live_generated?` · ${n(d.live_generated)} Tok. erzeugt`:""}` : `idle · letzter Request ${ago(d.last_request_at)}`;
-  const chips=[d.engine&&`v${d.engine}`,d.quant,d.kv&&`KV ${d.kv}`,d.context&&`${big(d.context)} ctx`,...(d.speculation||[]),d.vision&&"Vision",d.cuda&&`CUDA ${d.cuda}`,d.driver&&`Treiber ${d.driver}`].filter(Boolean);
+  let liveTxt = busy ? `${esc(d.phase||d.state)}${d.live_prompt[1]?` · ${t("live.prompt",{a:big(d.live_prompt[0]),b:big(d.live_prompt[1])})}`:""}${d.live_generated?` · ${t("live.generated",{n:n(d.live_generated)})}`:""}` : t("live.idle",{ago:ago(d.last_request_at)});
+  const chips=[d.engine&&`v${d.engine}`,d.quant,d.kv&&`KV ${d.kv}`,d.context&&`${big(d.context)} ctx`,...(d.speculation||[]),d.vision&&"Vision",d.cuda&&`CUDA ${d.cuda}`,d.driver&&t("chip.driver",{v:d.driver})].filter(Boolean);
   let html=`<div class="card" style="--nc:${c}">
-  <div class="nh"><span class="dot ${busy?"busy":"idle"}"></span><div><h2>${esc(d.name)} <span class="on">auf ${esc(d.machine||"")}</span></h2><div class="sub">${d.role?esc(d.role)+" · ":""}${ip(d.host)}:${d.port} · up ${dur(d.uptime_s)} · ${d.latency_ms} ms</div></div><a href="${esc(d.ui)}" target="_blank">Monitor ↗</a></div>
+  <div class="nh"><span class="dot ${busy?"busy":"idle"}"></span><div><h2>${esc(d.name)} <span class="on">${t("node.on",{machine:esc(d.machine||"")})}</span></h2><div class="sub">${d.role?esc(d.role)+" · ":""}${ip(d.host)}:${d.port} · up ${dur(d.uptime_s)} · ${d.latency_ms} ms</div></div><a href="${esc(d.ui)}" target="_blank">${t("node.monitor")}</a></div>
   <div class="model">${esc(d.model_label||d.model)}</div>
   <div class="chips">${chips.map(x=>`<span class="chip">${esc(x)}</span>`).join("")}</div>
   ${minerBox(d.host)}
-  ${!busy&&d.gpus.some(g=>(g.util||0)>50)?`<div class="err" style="color:var(--warn);background:rgba(251,191,36,.1);margin:8px 0 0">LLM idle, GPU trotzdem ${n(Math.max(...d.gpus.map(g=>g.util||0)))} % / ${n(d.gpus.reduce((a,g)=>a+(g.power||0),0))} W → ${LAST?.miners?.[d.host]?.running?"Miner aktiv":"Fremdlast"}</div>`:""}
-  <div class="live"><div class="big">${busy&&d.live_tok_s?n(d.live_tok_s,1):busy&&d.live_prefill?big(d.live_prefill):"–"} <small>${busy&&!d.live_tok_s&&d.live_prefill?"Prefill tok/s":"tok/s"}</small></div><div class="sub">${liveTxt}${d.queued?` · <b style="color:var(--warn)">${d.queued} wartend</b>`:""}</div></div>
-  <div class="sec">GPU${d.gpus.length>1?"s":""} <span class="scope">${gib(vramU)}/${gib(vramT)} GiB · ${n(powU)} W${powL?` / ${n(powL)} W`:""}</span></div>`;
+  ${!busy&&d.gpus.some(g=>(g.util||0)>50)?`<div class="err" style="color:var(--warn);background:rgba(251,191,36,.1);margin:8px 0 0">${t("warn.idle_load",{util:n(Math.max(...d.gpus.map(g=>g.util||0))),w:n(d.gpus.reduce((a,g)=>a+(g.power||0),0)),cause:LAST?.miners?.[d.host]?.running?t("warn.miner"):t("warn.foreign")})}</div>`:""}
+  <div class="live"><div class="big">${busy&&d.live_tok_s?n(d.live_tok_s,1):busy&&d.live_prefill?big(d.live_prefill):"–"} <small>${busy&&!d.live_tok_s&&d.live_prefill?t("live.prefill_unit"):"tok/s"}</small></div><div class="sub">${liveTxt}${d.queued?` · <b style="color:var(--warn)">${t("live.queued",{n:d.queued})}</b>`:""}</div></div>
+  <div class="sec">${d.gpus.length>1?t("sec.gpus"):t("sec.gpu")} <span class="scope">${gib(vramU)}/${gib(vramT)} GiB · ${n(powU)} W${powL?` / ${n(powL)} W`:""}</span></div>`;
   for(const g of d.gpus){
-    html+=`<div class="gpu"><div class="gn">${esc(g.name.replace("NVIDIA GeForce ",""))}${d.gpus.length>1?` #${g.index}`:""}<span>${g.temp??"–"} °C · ${g.pcie??""}${g.pcie_max&&g.pcie&&!g.pcie.startsWith("Gen"+g.pcie_max)?` (max Gen${g.pcie_max})`:""}</span></div>
-    ${row("Auslastung",g.util||0,`${n(g.util)} %`,101,101)}
-    ${row("VRAM",pct(g.mem_used,g.mem_total),`${gib(g.mem_used)} / ${gib(g.mem_total)} GiB`,97,99.5)}
-    ${row("Leistung",pct(g.power,g.power_limit||g.power),`${n(g.power)}${g.power_limit?` / ${n(g.power_limit)}`:""} W`,90,99)}
-    ${row("Temperatur",Math.min(100,(g.temp||0)),`${g.temp??"–"} °C`,80,87)}</div>`;
+    html+=`<div class="gpu"><div class="gn">${esc(g.name.replace("NVIDIA GeForce ",""))}${d.gpus.length>1?` #${g.index}`:""}<span>${g.temp??"–"} °C · ${g.pcie??""}${g.pcie_max&&g.pcie&&!g.pcie.startsWith("Gen"+g.pcie_max)?` ${t("gpu.max_gen",{g:g.pcie_max})}`:""}</span></div>
+    ${row(t("row.util"),g.util||0,`${n(g.util)} %`,101,101)}
+    ${row(t("row.vram"),pct(g.mem_used,g.mem_total),`${gib(g.mem_used)} / ${gib(g.mem_total)} GiB`,97,99.5)}
+    ${row(t("row.power"),pct(g.power,g.power_limit||g.power),`${n(g.power)}${g.power_limit?` / ${n(g.power_limit)}`:""} W`,90,99)}
+    ${row(t("row.temp"),Math.min(100,(g.temp||0)),`${g.temp??"–"} °C`,80,87)}</div>`;
   }
-  html+=`<div class="sec">System <span class="scope">${esc((d.cpu_name||"").replace(/\(R\)|\(TM\)| CPU @.*| with Radeon Graphics/g,""))}${d.threads?` · ${d.threads} Threads`:""}</span></div>
-  ${row("CPU",d.cpu||0,`${n(d.cpu,1)} %`,80,95)}
-  ${row("RAM",pct(d.ram_used,d.ram_total),`${gib(d.ram_used)} / ${gib(d.ram_total)} GiB`,85,95)}
-  ${d.storage?row("Modell-SSD",pct(d.storage.total-d.storage.free,d.storage.total),`${n(d.storage.free/1e9)} GB frei`,85,95):""}
-  <div class="sec">Verlauf <span class="scope">letzte ~60 Samples</span></div>
+  html+=`<div class="sec">${t("sec.system")} <span class="scope">${esc((d.cpu_name||"").replace(/\(R\)|\(TM\)| CPU @.*| with Radeon Graphics/g,""))}${d.threads?` · ${t("sys.threads",{n:d.threads})}`:""}</span></div>
+  ${row(t("row.cpu"),d.cpu||0,`${n(d.cpu,1)} %`,80,95)}
+  ${row(t("row.ram"),pct(d.ram_used,d.ram_total),`${gib(d.ram_used)} / ${gib(d.ram_total)} GiB`,85,95)}
+  ${d.storage?row(t("row.ssd"),pct(d.storage.total-d.storage.free,d.storage.total),t("ssd.free",{n:n(d.storage.free/1e9)}),85,95):""}
+  <div class="sec">${t("sec.history")} <span class="scope">${t("history.hint")}</span></div>
   <div class="sparks">
-   ${sp("Decode tok/s",n(h.tok_s.at(-1),1),h.tok_s,c)}
-   ${sp("GPU-Auslastung",n(h.gpu_util.at(-1))+" %",h.gpu_util,c,100)}
-   ${sp("GPU-Leistung",n(h.gpu_power.at(-1))+" W",h.gpu_power,"var(--warn)")}
-   ${h.cpu.length?sp("CPU",n(h.cpu.at(-1),1)+" %",h.cpu,"var(--info)",100):sp("GPU-Temp",n(h.gpu_temp.at(-1))+" °C",h.gpu_temp,"var(--bad)",100)}
+   ${sp(t("sp.decode"),n(h.tok_s.at(-1),1),h.tok_s,c)}
+   ${sp(t("sp.gpu_util"),n(h.gpu_util.at(-1))+" %",h.gpu_util,c,100)}
+   ${sp(t("sp.gpu_power"),n(h.gpu_power.at(-1))+" W",h.gpu_power,"var(--warn)")}
+   ${h.cpu.length?sp(t("sp.cpu"),n(h.cpu.at(-1),1)+" %",h.cpu,"var(--info)",100):sp(t("sp.gpu_temp"),n(h.gpu_temp.at(-1))+" °C",h.gpu_temp,"var(--bad)",100)}
   </div>
-  <div class="sec">Seit Start <span class="scope">${t.since?new Date(t.since*1000).toLocaleString("de-DE",{dateStyle:"short",timeStyle:"short"}):""}</span></div>
+  <div class="sec">${t("sec.since")} <span class="scope">${T.since?new Date(T.since*1000).toLocaleString(I18N.locale,{dateStyle:"short",timeStyle:"short"}):""}</span></div>
   <div class="stats">
-   <div class="st"><b>${n(t.requests)}</b><span>Requests</span></div>
-   <div class="st"><b>${big(t.prompt)}</b><span>Prompt-Tokens</span></div>
-   <div class="st"><b>${big(t.output)}</b><span>Output-Tokens</span></div>
-   <div class="st"><b>${n(t.reuse_pct,1)} %</b><span>Cache-Reuse</span></div>
-   <div class="st"><b>${n(t.decode_avg,1)}</b><span>Ø Decode tok/s</span></div>
-   <div class="st"><b>${big(t.prefill_avg)}</b><span>Ø Prefill <span class="scope">(abgeleitet)</span></span></div>
-   <div class="st"><b>${n(t.peak_decode,1)}</b><span>Peak Decode <span class="scope">(Allzeit ${n(t.peak_decode_all,1)})</span></span></div>
-   <div class="st"><b>${big(t.best_prefill??t.best_prefill_all)}</b><span>Peak Prefill <span class="scope">(Allzeit ${big(t.best_prefill_all)})</span></span></div>
-   <div class="st"><b>${n(t.draft_acc_pct,1)} %</b><span>Draft-Akzeptanz <span class="scope">(${t.drafts_scope})</span></span></div>
-   <div class="st"><b>${d.expert_hit!=null?n(d.expert_hit*100,1)+" %":"–"}</b><span>Expert-Hit VRAM <span class="scope">(${d.expert_hit_scope})</span></span></div>
-   <div class="st"><b>${n(d.expert_cache_mib/1024,1)} GiB</b><span>Expert-Cache</span></div>
-   <div class="st"><b>${d.last.decode!=null?n(d.last.decode,1):"–"}</b><span>Letzter Decode tok/s</span></div>
+   <div class="st"><b>${n(T.requests)}</b><span>${t("st.requests")}</span></div>
+   <div class="st"><b>${big(T.prompt)}</b><span>${t("st.prompt")}</span></div>
+   <div class="st"><b>${big(T.output)}</b><span>${t("st.output")}</span></div>
+   <div class="st"><b>${n(T.reuse_pct,1)} %</b><span>${t("st.reuse")}</span></div>
+   <div class="st"><b>${n(T.decode_avg,1)}</b><span>${t("st.decode_avg")}</span></div>
+   <div class="st"><b>${big(T.prefill_avg)}</b><span>${t("st.prefill_avg")} <span class="scope">${t("st.derived")}</span></span></div>
+   <div class="st"><b>${n(T.peak_decode,1)}</b><span>${t("st.peak_decode")} <span class="scope">${t("st.alltime",{v:n(T.peak_decode_all,1)})}</span></span></div>
+   <div class="st"><b>${big(T.best_prefill??T.best_prefill_all)}</b><span>${t("st.peak_prefill")} <span class="scope">${t("st.alltime",{v:big(T.best_prefill_all)})}</span></span></div>
+   <div class="st"><b>${n(T.draft_acc_pct,1)} %</b><span>${t("st.draft")} <span class="scope">(${T.drafts_n!=null?t("scope.last",{n:T.drafts_n}):T.drafts_scope==="gesamt"?t("scope.total"):esc(T.drafts_scope)})</span></span></div>
+   <div class="st"><b>${d.expert_hit!=null?n(d.expert_hit*100,1)+" %":"–"}</b><span>${t("st.hit")} <span class="scope">(${d.tiers?t("scope.tiers"):d.expert_hit_n!=null?t("scope.avg_last",{n:d.expert_hit_n}):esc(d.expert_hit_scope)})</span></span></div>
+   <div class="st"><b>${n(d.expert_cache_mib/1024,1)} GiB</b><span>${t("st.expert_cache")}</span></div>
+   <div class="st"><b>${d.last.decode!=null?n(d.last.decode,1):"–"}</b><span>${t("st.last_decode")}</span></div>
   </div>`;
-  if(d.tiers){const r=d.tiers;html+=`<div class="sec">Expert-Tiers <span class="scope">Maya</span></div>
-   ${row("VRAM-Slots",pct(r.vram_used,r.vram_slots),`${n(r.vram_used)} / ${n(r.vram_slots)}`,101,101)}
-   ${row("RAM-Slots",pct(r.ram_used,r.ram_slots),`${n(r.ram_used)} / ${n(r.ram_slots)}`,101,101)}
-   <div class="sparks" style="margin-top:6px">${sp("VRAM-Hit",n(d.expert_hit*100,1)+" %",r.history_hit.map(x=>x*100),c,100)}${sp("RAM-Fetch / SSD",`${n(r.ram_fetch,2)} / ${n(r.disk,2)}`,[],c)}</div>`;}
-  if(d.savings){html+=`<div class="sec">Gespart (API-Gegenwert) <span class="scope">${esc((d.savings.prices||[]).map(p=>`${p.api}: $${p.input}/$${p.cached}/$${p.output} pro M`).join(", "))}</span></div>
-   <div class="stats"><div class="st"><b>$${n(d.savings.usd,2)}</b><span>gesamt seit ${d.savings.since?new Date(d.savings.since*1000).toLocaleDateString("de-DE"):""}</span></div><div class="st"><b>$${n(d.savings.start_usd,2)}</b><span>dieser Lauf</span></div></div>`;}
-  if(d.loop_guard){const lg=d.loop_guard;html+=`<div class="sub" style="margin-top:8px">Loop-Guard ${lg.on?"an":"aus"} · erkannt ${lg.detected} · gestoppt ${lg.stopped} · Tool-Wdh. ${lg.tool_repeats}</div>`;}
-  if(d.conv_cache) html+=`<div class="sub" style="margin-top:8px">Conversation-Cache: ${n(d.conv_cache.reused)} von ${n(d.conv_cache.requests)} Requests mit Reuse</div>`;
+  if(d.tiers){const r=d.tiers;html+=`<div class="sec">${t("sec.tiers")} <span class="scope">Maya</span></div>
+   ${row(t("row.vram_slots"),pct(r.vram_used,r.vram_slots),`${n(r.vram_used)} / ${n(r.vram_slots)}`,101,101)}
+   ${row(t("row.ram_slots"),pct(r.ram_used,r.ram_slots),`${n(r.ram_used)} / ${n(r.ram_slots)}`,101,101)}
+   <div class="sparks" style="margin-top:6px">${sp(t("sp.vram_hit"),n(d.expert_hit*100,1)+" %",r.history_hit.map(x=>x*100),c,100)}${sp(t("sp.ram_fetch"),`${n(r.ram_fetch,2)} / ${n(r.disk,2)}`,[],c)}</div>`;}
+  if(d.savings){html+=`<div class="sec">${t("sec.savings")} <span class="scope">${esc((d.savings.prices||[]).map(p=>`${p.api}: $${p.input}/$${p.cached}/$${p.output} ${t("savings.per_m")}`).join(", "))}</span></div>
+   <div class="stats"><div class="st"><b>$${n(d.savings.usd,2)}</b><span>${t("savings.since",{date:d.savings.since?new Date(d.savings.since*1000).toLocaleDateString(I18N.locale):""})}</span></div><div class="st"><b>$${n(d.savings.start_usd,2)}</b><span>${t("savings.run")}</span></div></div>`;}
+  if(d.loop_guard){const lg=d.loop_guard;html+=`<div class="sub" style="margin-top:8px">${t("loop.line",{state:lg.on?t("loop.on"):t("loop.off"),d:lg.detected,s:lg.stopped,r:lg.tool_repeats})}</div>`;}
+  if(d.conv_cache) html+=`<div class="sub" style="margin-top:8px">${t("conv.line",{a:n(d.conv_cache.reused),b:n(d.conv_cache.requests)})}</div>`;
   return html+`</div>`;
 }
 
 function compare(nodes){
   const on=nodes.filter(d=>d.online);
   const rows=[
-    ["Modell",d=>d.model,null],
-    ["Kontext",d=>d.context,1,big],
-    ["Ø Decode tok/s",d=>d.totals.decode_avg,1,v=>n(v,1)],
-    ["Peak Decode tok/s",d=>d.totals.peak_decode_all??d.totals.peak_decode,1,v=>n(v,1)],
-    ["Peak Prefill tok/s",d=>d.totals.best_prefill_all??d.totals.best_prefill,1,big],
-    ["Ø Prefill (abgeleitet)",d=>d.totals.prefill_avg,0,big],
-    ["Cache-Reuse",d=>d.totals.reuse_pct,1,v=>n(v,1)+" %"],
-    ["Draft-Akzeptanz",d=>d.totals.draft_acc_pct,1,v=>n(v,1)+" %"],
-    ["Expert-Hit",d=>d.expert_hit!=null?d.expert_hit*100:null,1,v=>n(v,1)+" %"],
-    ["Requests",d=>d.totals.requests,0,v=>n(v)],
-    ["Prompt-Tokens",d=>d.totals.prompt,0,big],
-    ["Output-Tokens",d=>d.totals.output,0,big],
-    ["VRAM gesamt",d=>d.gpus.reduce((a,g)=>a+(g.mem_total||0),0),0,v=>gib(v)+" GiB"],
-    ["GPU-Leistung jetzt",d=>d.gpus.reduce((a,g)=>a+(g.power||0),0),-1,v=>n(v)+" W"],
-    ["GPU-Temp max",d=>Math.max(...d.gpus.map(g=>g.temp||0)),-1,v=>n(v)+" °C"],
-    ["Uptime",d=>d.uptime_s,0,dur],
-    ["Latenz Dashboard",d=>d.latency_ms,-1,v=>n(v)+" ms"],
+    [t("cmp.model"),d=>d.model,null],
+    [t("cmp.context"),d=>d.context,1,big],
+    [t("cmp.decode_avg"),d=>d.totals.decode_avg,1,v=>n(v,1)],
+    [t("cmp.peak_decode"),d=>d.totals.peak_decode_all??d.totals.peak_decode,1,v=>n(v,1)],
+    [t("cmp.peak_prefill"),d=>d.totals.best_prefill_all??d.totals.best_prefill,1,big],
+    [t("cmp.prefill_avg"),d=>d.totals.prefill_avg,0,big],
+    [t("cmp.reuse"),d=>d.totals.reuse_pct,1,v=>n(v,1)+" %"],
+    [t("cmp.draft"),d=>d.totals.draft_acc_pct,1,v=>n(v,1)+" %"],
+    [t("cmp.hit"),d=>d.expert_hit!=null?d.expert_hit*100:null,1,v=>n(v,1)+" %"],
+    [t("cmp.requests"),d=>d.totals.requests,0,v=>n(v)],
+    [t("cmp.prompt"),d=>d.totals.prompt,0,big],
+    [t("cmp.output"),d=>d.totals.output,0,big],
+    [t("cmp.vram"),d=>d.gpus.reduce((a,g)=>a+(g.mem_total||0),0),0,v=>gib(v)+" GiB"],
+    [t("cmp.power"),d=>d.gpus.reduce((a,g)=>a+(g.power||0),0),-1,v=>n(v)+" W"],
+    [t("cmp.temp"),d=>Math.max(...d.gpus.map(g=>g.temp||0)),-1,v=>n(v)+" °C"],
+    [t("cmp.uptime"),d=>d.uptime_s,0,dur],
+    [t("cmp.latency"),d=>d.latency_ms,-1,v=>n(v)+" ms"],
   ];
   let h=`<tr><th></th>${on.map(d=>`<th><span class="tag" style="background:${colorOf(d)}"></span>${esc(d.name)}<br><span class="scope">${esc(d.machine||"")}</span></th>`).join("")}</tr>`;
   for(const [l,f,dir,fmt] of rows){
@@ -376,8 +377,8 @@ function compare(nodes){
 function requests(nodes){
   const all=[];for(const d of nodes) if(d.online) for(const r of d.requests) all.push({...r,color:colorOf(d),name:d.name+" @ "+(d.machine||"")});
   all.sort((a,b)=>(b.time||0)-(a.time||0));
-  let h=`<tr><th>Node</th><th>Zeit</th><th>Dauer</th><th>Prompt</th><th>Reuse</th><th>Out</th><th>Prefill</th><th>Decode</th><th>Hit</th><th>Drafts</th></tr>`;
-  for(const r of all.slice(0,14)) h+=`<tr><td><span class="tag" style="background:${r.color}"></span>${esc(r.name)}</td><td>${r.time?new Date(r.time*1000).toLocaleTimeString("de-DE"):"–"}</td><td>${n(r.duration_s,1)} s</td><td>${big(r.prompt)}</td><td>${r.prompt?n((r.reused||0)/r.prompt*100)+" %":"–"}</td><td>${n(r.output)}</td><td>${big(r.prefill)}</td><td>${n(r.decode,1)}</td><td>${r.hit!=null?n(r.hit*100)+" %":"–"}</td><td>${r.drafts[1]?`${r.drafts[0]}/${r.drafts[1]}`:"–"}</td></tr>`;
+  let h=`<tr>${["node","time","duration","prompt","reuse","out","prefill","decode","hit","drafts"].map(k=>`<th>${t("req."+k)}</th>`).join("")}</tr>`;
+  for(const r of all.slice(0,14)) h+=`<tr><td><span class="tag" style="background:${r.color}"></span>${esc(r.name)}</td><td>${r.time?new Date(r.time*1000).toLocaleTimeString(I18N.locale):"–"}</td><td>${n(r.duration_s,1)} s</td><td>${big(r.prompt)}</td><td>${r.prompt?n((r.reused||0)/r.prompt*100)+" %":"–"}</td><td>${n(r.output)}</td><td>${big(r.prefill)}</td><td>${n(r.decode,1)}</td><td>${r.hit!=null?n(r.hit*100)+" %":"–"}</td><td>${r.drafts[1]?`${r.drafts[0]}/${r.drafts[1]}`:"–"}</td></tr>`;
   $("#reqs").innerHTML=h;
 }
 
@@ -386,7 +387,7 @@ function totals(nodes){
   const hosts=new Map();
   for(const d of nodes) if(d.online&&!hosts.has(d.host)) hosts.set(d.host,d);
   const H=[...hosts.values()];
-  if(!H.length){$("#total").innerHTML='<div class="sub">keine Engine erreichbar</div>';return;}
+  if(!H.length){$("#total").innerHTML=`<div class="sub">${t("tot.none")}</div>`;return;}
   const vU=d=>d.gpus.reduce((a,g)=>a+(g.mem_used||0),0), vT=d=>d.gpus.reduce((a,g)=>a+(g.mem_total||0),0);
   const pW=d=>d.gpus.reduce((a,g)=>a+(g.power||0),0), pL=d=>d.gpus.reduce((a,g)=>a+(g.power_limit||0),0);
   const S=f=>H.reduce((a,d)=>a+(f(d)||0),0);
@@ -397,12 +398,12 @@ function totals(nodes){
   const comb=(f,mode)=>{const L=H.map(f).filter(a=>a&&a.length);if(!L.length)return[];const n0=Math.min(...L.map(a=>a.length));
     return Array.from({length:n0},(_,i)=>{const v=L.map(a=>+a[a.length-n0+i]||0);return mode==="w"?v.reduce((a,x,j)=>a+x*thr(H[j]),0)/S(thr):v.reduce((a,x)=>a+x,0)});};
   const col=(title,big,unit,p,rows,w,b,hist,hmax,hc)=>`<div><div class="hd"><span>${title}</span><b>${big} <small class="scope">${unit}</small></b></div>
-    ${row("Gesamt",p,`${n(p,1)} %`,w,b)}${rows}${hist?`<div class="sp" style="margin-top:6px">${spark(hist,hc,hmax)}</div>`:""}</div>`;
-  $("#total").innerHTML=`<div class="sec">Cluster gesamt <span class="scope">${H.length} Rechner · ${S(d=>d.gpus.length)} GPUs · ${S(d=>d.threads)} CPU-Threads</span></div><div class="tot">
-   ${col("VRAM gesamt",`${gib(S(vU))} / ${gib(S(vT))}`,"GiB",pct(S(vU),S(vT)),H.map(d=>row(label(d),pct(vU(d),vT(d)),`${gib(vU(d))} / ${gib(vT(d))}`,97,99.5)).join(""),97,99.5)}
-   ${col("System-RAM gesamt",`${gib(S(d=>d.ram_used))} / ${gib(S(d=>d.ram_total))}`,"GiB",pct(S(d=>d.ram_used),S(d=>d.ram_total)),H.map(d=>row(label(d),pct(d.ram_used,d.ram_total),`${gib(d.ram_used)} / ${gib(d.ram_total)}`,85,95)).join(""),85,95)}
-   ${col("CPU-Auslastung",n(cpuW,1),"% (nach Threads gewichtet)",cpuW,H.map(d=>row(label(d),d.cpu||0,`${n(d.cpu,1)} % · ${d.threads||"?"} T`,80,95)).join(""),80,95,comb(d=>d.history.cpu,"w"),100,"var(--info)")}
-   ${col("GPU-Leistung",`${n(S(pW))} / ${n(S(pL))}`,"W",pct(S(pW),S(pL)),H.map(d=>row(label(d),pct(pW(d),pL(d)||pW(d)),`${n(pW(d))} / ${n(pL(d))} W · ${n(Math.max(...d.gpus.map(g=>g.util||0)))} %`,90,99)).join(""),90,99,comb(d=>d.history.gpu_power,"s"),null,"var(--warn)")}
+    ${row(t("tot.total"),p,`${n(p,1)} %`,w,b)}${rows}${hist?`<div class="sp" style="margin-top:6px">${spark(hist,hc,hmax)}</div>`:""}</div>`;
+  $("#total").innerHTML=`<div class="sec">${t("tot.title")} <span class="scope">${t("tot.scope",{m:H.length,g:S(d=>d.gpus.length),t:S(d=>d.threads)})}</span></div><div class="tot">
+   ${col(t("tot.vram"),`${gib(S(vU))} / ${gib(S(vT))}`,"GiB",pct(S(vU),S(vT)),H.map(d=>row(label(d),pct(vU(d),vT(d)),`${gib(vU(d))} / ${gib(vT(d))}`,97,99.5)).join(""),97,99.5)}
+   ${col(t("tot.ram"),`${gib(S(d=>d.ram_used))} / ${gib(S(d=>d.ram_total))}`,"GiB",pct(S(d=>d.ram_used),S(d=>d.ram_total)),H.map(d=>row(label(d),pct(d.ram_used,d.ram_total),`${gib(d.ram_used)} / ${gib(d.ram_total)}`,85,95)).join(""),85,95)}
+   ${col(t("tot.cpu"),n(cpuW,1),t("tot.cpu_unit"),cpuW,H.map(d=>row(label(d),d.cpu||0,`${n(d.cpu,1)} % · ${d.threads||"?"} T`,80,95)).join(""),80,95,comb(d=>d.history.cpu,"w"),100,"var(--info)")}
+   ${col(t("tot.power"),`${n(S(pW))} / ${n(S(pL))}`,"W",pct(S(pW),S(pL)),H.map(d=>row(label(d),pct(pW(d),pL(d)||pW(d)),`${n(pW(d))} / ${n(pL(d))} W · ${n(Math.max(...d.gpus.map(g=>g.util||0)))} %`,90,99)).join(""),90,99,comb(d=>d.history.gpu_power,"s"),null,"var(--warn)")}
   </div>`;
 }
 function kpis(nodes){
@@ -411,8 +412,8 @@ function kpis(nodes){
   const live=sum(d=>isBusy(d)?d.live_tok_s:0);
   const vU=sum(d=>d.gpus.reduce((a,g)=>a+(g.mem_used||0),0)),vT=sum(d=>d.gpus.reduce((a,g)=>a+(g.mem_total||0),0));
   const sav=on.find(d=>d.savings)?.savings?.usd;
-  const k=[[`${on.length}/${nodes.length}`,"Engines online"],[on.filter(isBusy).length,"aktiv"],[n(live,1),"tok/s live"],[n(sum(d=>d.totals.peak_decode_all??d.totals.peak_decode)),"Peak Decode Σ"],[big(sum(d=>d.totals.best_prefill_all??d.totals.best_prefill)),"Peak Prefill Σ"],[n(sum(d=>d.gpus.reduce((a,g)=>a+(g.power||0),0)))+" W","GPU-Leistung"],
-    [`${gib(vU)}/${gib(vT)}`,"VRAM GiB"],[n(sum(d=>d.totals.requests)),"Requests"],[big(sum(d=>d.totals.prompt)+sum(d=>d.totals.output)),"Tokens"],[sav!=null?"$"+n(sav,2):"–","gespart (Maya)"],(()=>{const M=Object.values(LAST?.miners||{});return [`${M.filter(m=>m.running).length}/${M.length}`,"Miner aktiv"]})()];
+  const k=[[`${on.length}/${nodes.length}`,t("kpi.online")],[on.filter(isBusy).length,t("kpi.active")],[n(live,1),t("kpi.live")],[n(sum(d=>d.totals.peak_decode_all??d.totals.peak_decode)),t("kpi.peak_decode")],[big(sum(d=>d.totals.best_prefill_all??d.totals.best_prefill)),t("kpi.peak_prefill")],[n(sum(d=>d.gpus.reduce((a,g)=>a+(g.power||0),0)))+" W",t("kpi.power")],
+    [`${gib(vU)}/${gib(vT)}`,t("kpi.vram")],[n(sum(d=>d.totals.requests)),t("kpi.requests")],[big(sum(d=>d.totals.prompt)+sum(d=>d.totals.output)),t("kpi.tokens")],[sav!=null?"$"+n(sav,2):"–",t("kpi.saved")],(()=>{const M=Object.values(LAST?.miners||{});return [`${M.filter(m=>m.running).length}/${M.length}`,t("kpi.miners")]})()];
   const kh=k.map(([b,s])=>`<div class="kpi"><b>${b}</b><span>${s}</span></div>`).join("");
   $("#kpis").innerHTML=kh; $("#kpiCard").innerHTML=`<div class="kpis">${kh}</div>`;
 }
@@ -420,28 +421,28 @@ function kpis(nodes){
 let LAST=null;
 function snapshot(){
   if(!LAST) return;
-  const blob=new Blob([JSON.stringify({exported:new Date().toISOString(),source:"cluster-dashboard",note:"keine API-Keys enthalten",...LAST},null,2)],{type:"application/json"});
+  const blob=new Blob([JSON.stringify({exported:new Date().toISOString(),source:"cluster-dashboard",note:t("snap.note"),...LAST},null,2)],{type:"application/json"});
   const a=document.createElement("a");a.href=URL.createObjectURL(blob);
   a.download="cluster-snapshot-"+new Date().toISOString().replace(/[:.]/g,"-").slice(0,19)+".json";a.click();URL.revokeObjectURL(a.href);
 }
 function render(){ if(!LAST) return; const d=LAST; SHOWN_MINER=new Set();
   $("#nodes").innerHTML=d.nodes.map(card).join(""); totals(d.nodes); kpis(d.nodes); compare(d.nodes); requests(d.nodes);
   applyTabs();
-  $("#bIp").textContent=HIDE?"IPs zeigen":"IPs ausblenden";
-  $("#tun").innerHTML=d.remote?'<a href="logout" style="color:var(--muted)">abmelden</a>':""; }
+  $("#bIp").textContent=HIDE?t("btn.ip_show"):t("btn.ip_hide");
+  $("#tun").innerHTML=d.remote?`<a href="logout" style="color:var(--muted)">${t("hdr.logout")}</a>`:""; }
 $("#bIp").onclick=()=>{HIDE=!HIDE;localStorage.setItem('cd_hide_ip',HIDE?'1':'0');render();};
 $("#bSnap").onclick=snapshot;
 // Kopfleiste: auf dem Handy standardmaessig eingeklappt, Zustand merken; ?kopf=0/1 erzwingt
 const MOB=matchMedia("(max-width:640px), (orientation:landscape) and (max-height:500px) and (pointer:coarse)");
 let HMIN=QP.has("kopf")?QP.get("kopf")==="0":(localStorage.getItem("cd_head_min")??(MOB.matches?"1":"0"))==="1";
-function setHead(m){HMIN=m;document.body.classList.toggle("hd-min",m);$("#bHead").textContent=m?"▾ mehr":"▴";localStorage.setItem("cd_head_min",m?"1":"0");}
+function setHead(m){HMIN=m;document.body.classList.toggle("hd-min",m);$("#bHead").textContent=m?t("hdr.more"):"▴";localStorage.setItem("cd_head_min",m?"1":"0");}
 setHead(HMIN); $("#bHead").onclick=()=>setHead(!HMIN);
 // ---- Tab-Layout fuers Handy: Uebersicht | je Node | Tabellen (Wischen wechselt) ----
 let TAB=QP.get("tab")||localStorage.getItem("cd_tab")||"ov";
 const tabsOn=()=>MOB.matches&&!QP.has("alle");
-function tabList(){const L=[{id:"ov",name:"Übersicht",c:"var(--accent)"}];
+function tabList(){const L=[{id:"ov",name:t("tab.overview"),c:"var(--accent)"}];
   for(const d of LAST?.nodes||[]) L.push({id:d.id,name:d.name,c:colorOf(d),busy:isBusy(d),off:!d.online});
-  L.push({id:"tab",name:"Tabellen",c:"var(--accent)"}); return L;}
+  L.push({id:"tab",name:t("tab.tables"),c:"var(--accent)"}); return L;}
 function applyTabs(){
   const on=tabsOn(); document.body.classList.toggle("tabbed",on);
   const L=tabList(); if(!L.some(t=>t.id===TAB)) TAB="ov";
@@ -469,16 +470,16 @@ addEventListener("scroll",()=>{const y=scrollY;
   else if(y>lastY+6) document.body.classList.add("hd-hide");
   else if(y<lastY-6) document.body.classList.remove("hd-hide");
   lastY=y;},{passive:true});
-$("#bShot").onclick=async()=>{const b=$("#bShot");b.disabled=true;b.textContent="📷 rendert …";
+$("#bShot").onclick=async()=>{const b=$("#bShot");b.disabled=true;b.textContent=t("btn.shot_busy");
   try{const w=document.documentElement.clientWidth,dpr=Math.min(2,Math.max(1,Math.round(devicePixelRatio||1)));
     const r=await fetch(`api/screenshot?w=${w}&dpr=${dpr}&stil=${TH}&hideip=${HIDE?1:0}`);
     if(!r.ok) throw new Error(await r.text());
     const a=document.createElement("a");a.href=URL.createObjectURL(await r.blob());
     a.download="cluster-dashboard-"+new Date().toISOString().replace(/[:.]/g,"-").slice(0,19)+".png";a.click();URL.revokeObjectURL(a.href);
-  }catch(e){alert("Screenshot fehlgeschlagen: "+e.message)}finally{b.disabled=false;b.textContent="📷 Ganze Seite";}};
-const THEMES=[["","aus"],["th-grad","Verlauf"],["th-img","Palmen"]];
+  }catch(e){alert(t("err.shot",{msg:e.message}))}finally{b.disabled=false;b.textContent=t("btn.shot");}};
+const THEMES=[["","style.off"],["th-grad","style.grad"],["th-img","style.palms"]];
 function setTheme(i){document.body.classList.remove("th-grad","th-img");if(THEMES[i][0])document.body.classList.add(THEMES[i][0]);
-  $("#bTheme").textContent="🌴 Stil: "+THEMES[i][1];localStorage.setItem("cd_theme",i);}
+  $("#bTheme").textContent=t("btn.style",{name:t(THEMES[i][1])});localStorage.setItem("cd_theme",i);}
 let TH=+(new URLSearchParams(location.search).get("stil")??localStorage.getItem("cd_theme")??0)%THEMES.length; setTheme(TH);
 $("#bTheme").onclick=()=>setTheme(TH=(TH+1)%THEMES.length);
 let fails=0;
@@ -486,11 +487,14 @@ async function tick(){
   try{
     const r=await fetch("api/all",{cache:"no-store"}); if(r.status===401){location.href="login";return;} const d=await r.json();
     LAST=d; render();
-    $("#upd").textContent="Stand "+new Date(d.time*1000).toLocaleTimeString("de-DE"); fails=0;
-  }catch(e){ $("#upd").textContent="Aggregator nicht erreichbar ("+(++fails)+")"; }
+    $("#upd").textContent=t("hdr.updated",{time:new Date(d.time*1000).toLocaleTimeString(I18N.locale)}); fails=0;
+  }catch(e){ $("#upd").textContent=t("hdr.unreachable",{n:++fails}); }
   setTimeout(tick,(LAST?.poll_s||2)*1000);
 }
-tick();
+// Sprache laden, dann starten; Umschalter wechselt ohne Neuladen
+function relabel(){setTheme(TH);setHead(HMIN);render();}
+$("#bLang").onclick=()=>i18nNext(relabel);
+i18nInit().then(()=>{relabel();tick();});
 </script>
 </body>
 </html>
