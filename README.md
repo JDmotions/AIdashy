@@ -32,6 +32,7 @@ loginctl enable-linger $USER          # läuft auch ohne Anmeldung
 1. Login anlegen: `python3 server.py --set-password BENUTZER`, Dienst neu starten
 2. `cloudflared` nach `bin/` legen ([Releases](https://github.com/cloudflare/cloudflared/releases))
 3. `systemctl --user enable --now cluster-dashboard-tunnel.service` – die URL steht in `tunnel.url`
+4. Optional Mail bei neuer URL: `tunnel.env` mit `MAIL_CMD=sendmail` und `MAIL_PREFIX="…"` anlegen
 
 Im LAN ist kein Login nötig, über den Tunnel immer.
 
@@ -59,3 +60,7 @@ per SSH-Key aus `keys/`).
   langsamste Rechner. Das Ergebnis wird kurz zwischengespeichert, mehrere offene Browser kosten
   keine zusätzlichen Abfragen.
 - Übersichtlich bis etwa 10–12 Engines; technisch sind ~50 möglich (Datenmenge ~4 KiB pro Engine und Abfrage).
+
+## Lizenz
+
+MIT – siehe [LICENSE](LICENSE).

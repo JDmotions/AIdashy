@@ -18,3 +18,5 @@ bin/cloudflared
 # alte Staende und Fremd-Referenz
 *.v1
 ref-strata-fleet-v28/
+# lokale Tunnel-Einstellungen (Mail)
+tunnel.env
