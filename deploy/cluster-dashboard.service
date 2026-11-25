@@ -1,9 +1,11 @@
+# <DASHBOARD_DIR> = folder where AIdashy is cloned. Install with (from that folder):
+#   sed "s#<DASHBOARD_DIR>#$PWD#g" deploy/cluster-dashboard.service > ~/.config/systemd/user/cluster-dashboard.service
 [Unit]
 Description=AIdashy cluster telemetry dashboard
 After=network-online.target
 
 [Service]
-ExecStart=/usr/bin/python3 -I %h/tools/cluster-dashboard/server.py
+ExecStart=/usr/bin/python3 -I <DASHBOARD_DIR>/server.py
 Restart=on-failure
 RestartSec=3
 

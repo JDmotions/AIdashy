@@ -1,10 +1,12 @@
+# <DASHBOARD_DIR> = folder where AIdashy is cloned. Install with (from that folder):
+#   sed "s#<DASHBOARD_DIR>#$PWD#g" deploy/cluster-dashboard-tunnel.service > ~/.config/systemd/user/cluster-dashboard-tunnel.service
 [Unit]
 Description=Cloudflare tunnel for the cluster dashboard
 After=network-online.target cluster-dashboard.service
 Wants=cluster-dashboard.service
 
 [Service]
-ExecStart=%h/tools/cluster-dashboard/tunnel.sh
+ExecStart=<DASHBOARD_DIR>/tunnel.sh
 Restart=always
 RestartSec=10
 

@@ -1,13 +1,15 @@
+# <DASHBOARD_DIR> = folder where AIdashy is cloned. Install with (from that folder):
+#   sed "s#<DASHBOARD_DIR>#$PWD#g" deploy/gpu-agent.service > ~/.config/systemd/user/gpu-agent.service
 # GPU agent for machines running a third-party engine (serves GPU/CPU/RAM to the dashboard, port 9835).
-#   mkdir -p ~/.config/systemd/user && cp gpu-agent.service ~/.config/systemd/user/
+#   (create ~/.config/systemd/user first if it does not exist)
 #   systemctl --user daemon-reload && systemctl --user enable --now gpu-agent.service
-# Adjust the path if the repo lives elsewhere. Only gpu-agent.py is needed (a single file).
+# Only bin/gpu-agent.py is needed (a single file).
 [Unit]
 Description=GPU agent for cluster-dashboard
 After=network-online.target
 
 [Service]
-ExecStart=/usr/bin/python3 -I %h/tools/cluster-dashboard/bin/gpu-agent.py --port 9835
+ExecStart=/usr/bin/python3 -I <DASHBOARD_DIR>/bin/gpu-agent.py --port 9835
 Restart=on-failure
 RestartSec=5
 

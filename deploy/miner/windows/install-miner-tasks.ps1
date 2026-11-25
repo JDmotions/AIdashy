@@ -6,14 +6,16 @@
 #
 # Usage, e.g.:
 #   powershell -ExecutionPolicy Bypass -File install-miner-tasks.ps1 `
-#     -MinerExe "D:\miner\SRBMiner-MULTI.exe" -MinerArgs "--config-file D:\miner\config.txt --api-enable --api-port 21550"
+#     -MinerExe "<MINER_DIR>\SRBMiner-MULTI.exe" -MinerArgs "--config-file <MINER_DIR>\config.txt --api-enable --api-port 21550"
+#   <MINER_DIR> = folder of the miner; <STATE_DIR> (-StateDir) = folder for pause file, counter and log
 # or with your own launcher/script instead of the exe (e.g. a .bat).
 param(
   [Parameter(Mandatory = $true)][string]$MinerExe,
   [string]$MinerArgs = "",
   [string]$MinerTask = "MinerStart",
   [string]$WatchdogTask = "MinerWatchdog",
-  [string]$ProcessName = "SRBMiner-MULTI"
+  [string]$ProcessName = "SRBMiner-MULTI",
+  [string]$StateDir = (Join-Path $env:ProgramData "miner")     # <STATE_DIR>
 )
 $ErrorActionPreference = "Stop"
 $user = "$env:USERDOMAIN\$env:USERNAME"
@@ -31,12 +33,12 @@ Register-ScheduledTask -TaskName $MinerTask -Action $action -Trigger $trigger -P
 Write-Host "Task $MinerTask created."
 
 # 2. Watchdog
-$dir = Join-Path $env:ProgramData "miner"
+$dir = $StateDir
 New-Item -ItemType Directory -Force -Path $dir | Out-Null
 $wd = Join-Path $dir "miner-watchdog.ps1"
 Copy-Item -Force (Join-Path $PSScriptRoot "miner-watchdog.ps1") $wd
 $wdAction = New-ScheduledTaskAction -Execute "powershell.exe" `
-  -Argument "-NoProfile -NonInteractive -WindowStyle Hidden -ExecutionPolicy Bypass -File `"$wd`" -MinerTask $MinerTask -ProcessName $ProcessName"
+  -Argument "-NoProfile -NonInteractive -WindowStyle Hidden -ExecutionPolicy Bypass -File `"$wd`" -MinerTask $MinerTask -ProcessName $ProcessName -StateDir `"$dir`""
 $wdTrigger = New-ScheduledTaskTrigger -Once -At (Get-Date).AddMinutes(1) `
   -RepetitionInterval (New-TimeSpan -Minutes 2)
 $wdSet = New-ScheduledTaskSettingsSet -MultipleInstances IgnoreNew -ExecutionTimeLimit (New-TimeSpan -Minutes 1) `

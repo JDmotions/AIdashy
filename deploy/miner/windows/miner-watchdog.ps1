@@ -9,12 +9,14 @@ param(
   [string]$MinerTask   = "MinerStart",                  # scheduled task that starts the miner
   [string]$ProcessName = "SRBMiner-MULTI",              # without .exe
   [string]$Api         = "http://127.0.0.1:21550/",
-  [string]$PauseFlag   = "$env:ProgramData\miner\paused.flag",
+  [string]$StateDir    = (Join-Path $env:ProgramData "miner"),   # <STATE_DIR>: pause file, counter, log
+  [string]$PauseFlag   = "",                                   # default: <STATE_DIR>\paused.flag
   [int]$GraceSeconds   = 180,
   [int]$MaxBad         = 3
 )
 $ErrorActionPreference = "SilentlyContinue"
-$dir   = Join-Path $env:ProgramData "miner"
+$dir   = $StateDir
+if (-not $PauseFlag) { $PauseFlag = Join-Path $dir "paused.flag" }
 New-Item -ItemType Directory -Force -Path $dir | Out-Null
 $state = Join-Path $dir "watchdog.count"
 $log   = Join-Path $dir "watchdog.log"

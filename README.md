@@ -15,8 +15,8 @@ optional GPU-miner control. A single Python process without dependencies (standa
 ## Setting up a new system
 
 ```bash
-git clone https://github.com/JDmotions/AIdashy.git ~/tools/cluster-dashboard && cd ~/tools/cluster-dashboard
-python3 server.py            # creates config.json from config.default.json, listens on :8095
+git clone https://github.com/JDmotions/AIdashy.git <DASHBOARD_DIR> && cd <DASHBOARD_DIR>
+python3 server.py            # <DASHBOARD_DIR> = any folder you like; creates config.json from config.default.json, listens on :8095
 ```
 
 Then open `http://<machine>:8095/config` in a browser and enter:
@@ -31,7 +31,8 @@ Alternatively load an exported configuration via **⇧ Import**.
 ### As a service (systemd, user)
 
 ```bash
-cp deploy/*.service ~/.config/systemd/user/
+mkdir -p ~/.config/systemd/user
+for f in deploy/*.service; do sed "s#<DASHBOARD_DIR>#$PWD#g" "$f" > ~/.config/systemd/user/$(basename "$f"); done
 systemctl --user daemon-reload
 systemctl --user enable --now cluster-dashboard.service
 loginctl enable-linger $USER          # keeps running without a login session
@@ -87,7 +88,8 @@ on the same machine (note "Hardware: Maya" on the card). If there is none, the G
 
 ```bash
 python3 bin/gpu-agent.py --port 9835          # Linux and Windows
-cp deploy/gpu-agent.service ~/.config/systemd/user/ && systemctl --user enable --now gpu-agent.service
+sed "s#<DASHBOARD_DIR>#$PWD#g" deploy/gpu-agent.service > ~/.config/systemd/user/gpu-agent.service
+systemctl --user daemon-reload && systemctl --user enable --now gpu-agent.service
 ```
 
 The dashboard queries it automatically on port 9835 (`gpu_agent_port` in `config.json`).
@@ -125,6 +127,14 @@ expressed as commands.
 Miners are configured in the `miners` section of `config.json` (not in the web UI, because these
 entries execute commands). The key is the IP from `machines`.
 
+Placeholders used below – replace them with your own folders:
+
+| Placeholder | Meaning |
+|---|---|
+| `<MINER_DIR>` | folder of the miner (where `SRBMiner-MULTI` / `SRBMiner-MULTI.exe` lives) |
+| `<STATE_DIR>` | folder for the watchdog's pause file, counter and log (Windows default `C:\ProgramData\miner`, Linux `/run`) |
+| `<DASHBOARD_DIR>` | folder where AIdashy is cloned |
+
 ### Linux machine running the dashboard (`kind: systemd`)
 
 ```json
@@ -146,8 +156,8 @@ entries execute commands). The key is the IP from `machines`.
 "miners": {
   "192.168.0.20": {
     "kind": "ssh", "user": "miner", "key": "keys/miner_ed25519",
-    "start":  "del /q \"C:\\ProgramData\\miner\\paused.flag\" 2>nul & schtasks /run /tn MinerStart",
-    "stop":   "type nul > \"C:\\ProgramData\\miner\\paused.flag\" & taskkill /im SRBMiner-MULTI.exe /f",
+    "start":  "del /q \"<STATE_DIR>\\paused.flag\" 2>nul & schtasks /run /tn MinerStart",
+    "stop":   "type nul > \"<STATE_DIR>\\paused.flag\" & taskkill /im SRBMiner-MULTI.exe /f",
     "status": "tasklist /FI \"IMAGENAME eq SRBMiner-MULTI.exe\" /NH & curl.exe -s -m 3 http://127.0.0.1:21550/",
     "process": "SRBMiner-MULTI.exe"
   }
@@ -184,14 +194,14 @@ journalctl -t miner-watchdog          # what it did
 
 - Crashes are already handled by `Restart=on-failure` of the miner unit; the timer checks the API every 2 min.
 - Restart after 3 bad checks in a row, never within the first 180 s after a start.
-- No action if the unit is stopped, the process is paused (SIGSTOP) or `/run/miner.paused` exists.
+- No action if the unit is stopped, the process is paused (SIGSTOP) or `/run/miner.paused` (`PAUSE_FLAG`) exists.
 - Tunable via `Environment=` in `miner-watchdog.service`: `UNIT`, `API`, `GRACE`, `MAX_BAD`, `PAUSE_FLAG`.
 
 **Windows** (`deploy/miner/windows/`, PowerShell as administrator, as the user the miner should run as):
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File install-miner-tasks.ps1 `
-  -MinerExe "D:\miner\SRBMiner-MULTI.exe" `
+  -MinerExe "<MINER_DIR>\SRBMiner-MULTI.exe" `
   -MinerArgs "--algorithm <algo> --pool <pool:port> --wallet <wallet> --api-enable --api-port 21550"
 ```
 
@@ -199,8 +209,8 @@ powershell -ExecutionPolicy Bypass -File install-miner-tasks.ps1 `
   `MinerWatchdog` (every 2 min, hidden).
 - Instead of the exe, `-MinerExe` can also be your own launcher or a `.bat`.
 - Watchdog: starts `MinerStart` if the process is missing; kills and restarts after 3 checks without
-  hashrate. Does nothing while `C:\ProgramData\miner\paused.flag` exists.
-  Log: `C:\ProgramData\miner\watchdog.log`.
+  hashrate. Does nothing while `<STATE_DIR>\paused.flag` exists.
+  Log: `<STATE_DIR>\watchdog.log`.
 - For the miner to run after a reboot without intervention, Windows needs automatic logon
   (e.g. Sysinternals Autologon) – otherwise `MinerStart` only runs once someone logs on.
 

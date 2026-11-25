@@ -1,4 +1,5 @@
 # Example unit for a GPU miner (SRBMiner-MULTI) on Linux.
+# <MINER_DIR> = folder of the miner (where the SRBMiner-MULTI binary lives).
 # Copy to /etc/systemd/system/miner.service, replace the <...> placeholders, then:
 #   sudo systemctl daemon-reload && sudo systemctl enable --now miner.service
 #
@@ -18,14 +19,14 @@ Type=simple
 # As a normal user: then a proxy (miner-gate) can pause the process with SIGSTOP/SIGCONT.
 User=<user>
 Group=<user>
-WorkingDirectory=<path-to-miner>
-ExecStart=<path-to-miner>/SRBMiner-MULTI \
+WorkingDirectory=<MINER_DIR>
+ExecStart=<MINER_DIR>/SRBMiner-MULTI \
   --algorithm <algo> --pool <pool:port> --wallet <wallet> --worker <name> --password x \
   --disable-cpu --gpu-id 0 \
   --api-enable --api-port 21550 \
   --max-no-share-sent 900 \
   --gpu-off-temperature 82 --shutdown-temperature 90 \
-  --log-file <path-to-miner>/logs/miner.log --log-file-mode 1
+  --log-file <MINER_DIR>/logs/miner.log --log-file-mode 1
 Restart=on-failure
 RestartSec=15
 # SRBMiner exits cleanly on SIGTERM; hard kill after the timeout
