@@ -530,6 +530,10 @@ def collect_all():
             return json.loads(json.dumps(COLLECT["data"]))
         with ThreadPoolExecutor(max(1, min(64, len(CFG["machines"])))) as ex:
             nodes = [d for lst in ex.map(collect_machine, CFG["machines"]) for d in lst]
+        # OpenAI-Rueckfall, dessen Modell eine richtig erkannte Engine schon anbietet = Proxy davor -> keine Karte
+        known = {str(d.get("model") or "").lower() for d in nodes if d.get("online") and d.get("service") != "openai"}
+        nodes = [d for d in nodes if not (d.get("service") == "openai" and d.get("online")
+                                          and str(d.get("model") or "").lower() in known)]
         for d in nodes:
             remember_peaks(d)
         COLLECT.update(at=time.time(), data={"time": time.time(), "nodes": nodes})
@@ -733,7 +737,14 @@ def public_config():
     # alle bekannten fremden Engines mit Standard-Ports (fuer den Konfig-Schritt "Andere Engines")
     c["engine_catalog"] = [{"id": k, "name": engines.DEFAULTS[k][0], "ports": engines.PORTS[k]} for k in engines.ORDER]
     c.setdefault("engines", {})
+    c["rev"] = config_rev()
     return c
+
+
+def config_rev():
+    """Stand der config.json - die Konfig-Seite schickt ihn beim Speichern mit (Schutz vor veralteten Tabs)."""
+    import hashlib as _hl
+    return _hl.sha256(CFG_PATH.read_bytes()).hexdigest()[:16]
 
 
 EXPORT_VERSION = 1
@@ -922,6 +933,14 @@ class H(BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(body)
 
+    def _log_cfg(self, what, ok):
+        try:
+            with open(ROOT / "config-changes.log", "a") as f:
+                f.write(f'{time.strftime("%Y-%m-%d %H:%M:%S")} {what} ok={ok} von={self._client()}'
+                        f'{" (Tunnel)" if self._via_tunnel() else ""} {self.headers.get("User-Agent", "")[:80]}\n')
+        except Exception:
+            pass
+
     def _lang(self):
         """Sprache des Clients: ?lang= > Cookie cd_lang > Accept-Language > Englisch."""
         import re as _re
@@ -1077,11 +1096,15 @@ class H(BaseHTTPRequestHandler):
             return self._json(400, {"ok": False, "errors": [M("srv.no_json")]})
         p = self.path.split("?")[0]
         if p == "/api/config":
+            if body.get("rev") and body["rev"] != config_rev():
+                return self._json(409, {"ok": False, "errors": [M("srv.stale")], "config": public_config()})
             ok, msgs = apply_config(body)
+            self._log_cfg("save", ok)
             return self._json(200 if ok else 400, {"ok": ok, ("notes" if ok else "errors"): msgs,
                                                    "config": public_config()})
         if p == "/api/config/import":
             ok, msgs, notes = import_config(body, allow_privileged=not self._via_tunnel())
+            self._log_cfg("import", ok)
             return self._json(200 if ok else 400, {"ok": ok, ("notes" if ok else "errors"): (notes if ok else msgs),
                                                    "config": public_config()})
         if p == "/api/miner":

@@ -141,7 +141,7 @@ function gather(){
     engines:Object.fromEntries([...$("#others").children].map(tr=>[tr.dataset.id,{enabled:tr.querySelector("[data-k=on]").checked,ports:tr.querySelector("[data-k=ports]").value.trim()}])),
     key_files:[...$("#keyfiles").children].map(tr=>tr.querySelector("input").value.trim()).filter(Boolean),
     scan_ports:$("#scan_ports").value, rediscover_s:+$("#rediscover_s").value, poll_s:+$("#poll_s").value,
-    timeout_s:+$("#timeout_s").value, port:+$("#port").value, host:$("#host").value.trim()};
+    timeout_s:+$("#timeout_s").value, port:+$("#port").value, host:$("#host").value.trim(), rev:CFG?.rev};
 }
 async function post(url,body){const r=await fetch(url,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body)});if(r.status===401){location.href="login";throw "login";}return [r.ok,await r.json()];}
 async function save(){

@@ -20,3 +20,4 @@ bin/cloudflared
 ref-strata-fleet-v28/
 # lokale Tunnel-Einstellungen (Mail)
 tunnel.env
+config-changes.log

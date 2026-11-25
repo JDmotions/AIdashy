@@ -268,5 +268,6 @@
   "eng.koboldcpp": "Modell, Kontext, letzter Decode tok/s",
   "eng.triton": "Requests und GPU-Werte über Metrik-Port 8002",
   "eng.aphrodite": "wie vLLM",
-  "eng.openai": "Rückfall für jede OpenAI-API mit Modellen; keine eigenen Ports, nutzt die übrigen"
+  "eng.openai": "Rückfall für jede OpenAI-API mit Modellen; keine eigenen Ports, nutzt die übrigen",
+  "srv.stale": "Die Konfiguration wurde inzwischen an anderer Stelle geändert. Seite neu laden und Änderungen erneut eintragen."
 }
