@@ -1,5 +1,6 @@
 // Ganzseiten-Screenshot per Chrome DevTools Protocol (Node >= 22, kein npm-Paket noetig).
-// Aufruf: node shot.mjs <url> <breite> <dpr> <mobile 0|1> <out.png>
+// Aufruf: node shot.mjs <url> <breite> <dpr> <mobile 0|1> <out.png> [feste_hoehe]
+// feste_hoehe: nur diesen Ausschnitt aufnehmen (z. B. Querformat-Viewport), sonst ganze Seite
 // Misst die echte Seitenhoehe im gerenderten Layout und nimmt alles auf (captureBeyondViewport).
 import { spawn } from "node:child_process";
 import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
@@ -7,6 +8,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 const [url, w, dpr, mobile, out] = [process.argv[2], +process.argv[3], +process.argv[4], process.argv[5] === "1", process.argv[6]];
+const fixH = +process.argv[7] || 0;
 const chrome = process.env.CHROME || "google-chrome";
 const prof = mkdtempSync(join(tmpdir(), "cd-shot-"));
 const port = 9400 + Math.floor(Math.random() * 400);
@@ -26,12 +28,12 @@ ws.onmessage = e => { const m = JSON.parse(e.data); if (pend[m.id]) { pend[m.id]
 const send = (method, params = {}) => new Promise(r => { pend[++id] = r; ws.send(JSON.stringify({ id, method, params })); });
 const evalJs = async expr => (await send("Runtime.evaluate", { expression: expr, returnByValue: true })).result.result.value;
 
-await send("Emulation.setDeviceMetricsOverride", { width: w, height: 900, deviceScaleFactor: dpr, mobile });
+await send("Emulation.setDeviceMetricsOverride", { width: w, height: fixH || 900, deviceScaleFactor: dpr, mobile });
 await send("Page.navigate", { url });
 // warten bis die Daten gerendert sind (Karten vorhanden), max. ~10 s
 for (let i = 0; i < 40; i++) { if (await evalJs("!!(typeof LAST!=='undefined' && LAST && document.querySelector('#nodes .card'))")) break; await sleep(250); }
 await sleep(800);
-const h = await evalJs("Math.ceil(document.documentElement.scrollHeight)");
+const h = fixH || await evalJs("Math.ceil(document.documentElement.scrollHeight)");
 // Viewport auf volle Hoehe ziehen, damit fixe Hintergruende die ganze Seite abdecken
 await send("Emulation.setDeviceMetricsOverride", { width: w, height: h, deviceScaleFactor: dpr, mobile });
 await sleep(500);
