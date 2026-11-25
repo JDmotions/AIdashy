@@ -1,0 +1,13 @@
+# Einmaliger Lauf des Watchdogs (wird von miner-watchdog.timer ausgeloest).
+# Installation:
+#   sudo install -m 755 miner-watchdog.sh /usr/local/sbin/miner-watchdog.sh
+#   sudo cp miner-watchdog.service miner-watchdog.timer /etc/systemd/system/
+#   sudo systemctl daemon-reload && sudo systemctl enable --now miner-watchdog.timer
+[Unit]
+Description=Miner watchdog (restart on hang / zero hashrate)
+
+[Service]
+Type=oneshot
+Environment=UNIT=miner.service
+Environment=API=http://127.0.0.1:21550/
+ExecStart=/usr/local/sbin/miner-watchdog.sh

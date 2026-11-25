@@ -1,0 +1,37 @@
+# Beispiel-Unit fuer einen GPU-Miner (SRBMiner-MULTI) unter Linux.
+# Kopieren nach /etc/systemd/system/miner.service, Platzhalter <...> ersetzen, dann:
+#   sudo systemctl daemon-reload && sudo systemctl enable --now miner.service
+#
+# Restart=on-failure: systemd startet neu, wenn der Prozess abstuerzt.
+# Ein bewusstes `systemctl stop` (Dashboard-Schalter) wird NICHT rueckgaengig gemacht.
+# Haenger ohne Absturz (Hashrate 0) faengt miner-watchdog.timer ab.
+
+[Unit]
+Description=GPU miner (SRBMiner-MULTI)
+After=network-online.target nvidia-persistenced.service
+Wants=network-online.target
+StartLimitIntervalSec=600
+StartLimitBurst=5
+
+[Service]
+Type=simple
+# Als normaler Benutzer: dann kann ein Proxy (miner-gate) den Prozess per SIGSTOP/SIGCONT pausieren.
+User=<benutzer>
+Group=<benutzer>
+WorkingDirectory=<pfad-zum-miner>
+ExecStart=<pfad-zum-miner>/SRBMiner-MULTI \
+  --algorithm <algo> --pool <pool:port> --wallet <wallet> --worker <name> --password x \
+  --disable-cpu --gpu-id 0 \
+  --api-enable --api-port 21550 \
+  --max-no-share-sent 900 \
+  --gpu-off-temperature 82 --shutdown-temperature 90 \
+  --log-file <pfad-zum-miner>/logs/miner.log --log-file-mode 1
+Restart=on-failure
+RestartSec=15
+# SRBMiner beendet sich sauber auf SIGTERM; danach hart
+KillSignal=SIGTERM
+TimeoutStopSec=20
+Nice=5
+
+[Install]
+WantedBy=multi-user.target
