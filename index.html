@@ -249,6 +249,7 @@ const esc=s=>String(s??"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&g
 const n=(v,d=0)=>v==null||isNaN(v)?"–":Number(v).toLocaleString(I18N.locale,{maximumFractionDigits:d,minimumFractionDigits:d});
 const big=v=>v==null?"–":v>=1e9?n(v/1e9,2)+" G":v>=1e6?n(v/1e6,1)+" M":v>=1e3?n(v/1e3,1)+" k":n(v);
 const gib=b=>b==null?"–":n(b/2**30,1);
+const mx=a=>a.length?Math.max(...a):null;   // Math.max ueber leere Liste waere -Infinity
 const pct=(a,b)=>b?Math.max(0,Math.min(100,a/b*100)):0;
 const dur=s=>{if(s==null)return"–";s=Math.floor(s);const d=Math.floor(s/86400),h=Math.floor(s%86400/3600),m=Math.floor(s%3600/60);return d?`${d}d ${h}h`:h?`${h}h ${m}m`:`${m}m`};
 const ago=x=>x?t("time.ago",{d:dur(Date.now()/1000-x)}):"–";
@@ -291,15 +292,15 @@ function card(d){
   const vramU=d.gpus.reduce((a,g)=>a+(g.mem_used||0),0), vramT=d.gpus.reduce((a,g)=>a+(g.mem_total||0),0);
   const powU=d.gpus.reduce((a,g)=>a+(g.power||0),0), powL=d.gpus.reduce((a,g)=>a+(g.power_limit||0),0);
   let liveTxt = busy ? `${esc(d.phase||d.state)}${d.live_prompt[1]?` · ${t("live.prompt",{a:big(d.live_prompt[0]),b:big(d.live_prompt[1])})}`:""}${d.live_generated?` · ${t("live.generated",{n:n(d.live_generated)})}`:""}` : t("live.idle",{ago:ago(d.last_request_at)});
-  const chips=[d.engine&&`v${d.engine}`,d.quant,d.kv&&`KV ${d.kv}`,d.context&&`${big(d.context)} ctx`,...(d.speculation||[]),d.vision&&"Vision",d.cuda&&`CUDA ${d.cuda}`,d.driver&&t("chip.driver",{v:d.driver})].filter(Boolean);
+  const chips=[d.engine&&(/^\d/.test(d.engine)?`v${d.engine}`:d.engine),d.quant,d.kv&&`KV ${d.kv}`,d.context&&`${big(d.context)} ctx`,...(d.speculation||[]),d.vision&&"Vision",d.cuda&&`CUDA ${d.cuda}`,d.driver&&t("chip.driver",{v:d.driver})].filter(Boolean);
   let html=`<div class="card" style="--nc:${c}">
   <div class="nh"><span class="dot ${busy?"busy":"idle"}"></span><div><h2>${esc(d.name)} <span class="on">${t("node.on",{machine:esc(d.machine||"")})}</span></h2><div class="sub">${d.role?esc(d.role)+" · ":""}${ip(d.host)}:${d.port} · up ${dur(d.uptime_s)} · ${d.latency_ms} ms</div></div><a href="${esc(d.ui)}" target="_blank">${t("node.monitor")}</a></div>
   <div class="model">${esc(d.model_label||d.model)}</div>
   <div class="chips">${chips.map(x=>`<span class="chip">${esc(x)}</span>`).join("")}</div>
   ${minerBox(d.host)}
-  ${!busy&&d.gpus.some(g=>(g.util||0)>50)?`<div class="err" style="color:var(--warn);background:rgba(251,191,36,.1);margin:8px 0 0">${t("warn.idle_load",{util:n(Math.max(...d.gpus.map(g=>g.util||0))),w:n(d.gpus.reduce((a,g)=>a+(g.power||0),0)),cause:LAST?.miners?.[d.host]?.running?t("warn.miner"):t("warn.foreign")})}</div>`:""}
+  ${!busy&&!d.hw_source&&d.gpus.some(g=>(g.util||0)>50)?`<div class="err" style="color:var(--warn);background:rgba(251,191,36,.1);margin:8px 0 0">${t("warn.idle_load",{util:n(mx(d.gpus.map(g=>g.util||0))),w:n(d.gpus.reduce((a,g)=>a+(g.power||0),0)),cause:LAST?.miners?.[d.host]?.running?t("warn.miner"):t("warn.foreign")})}</div>`:""}
   <div class="live"><div class="big">${busy&&d.live_tok_s?n(d.live_tok_s,1):busy&&d.live_prefill?big(d.live_prefill):"–"} <small>${busy&&!d.live_tok_s&&d.live_prefill?t("live.prefill_unit"):"tok/s"}</small></div><div class="sub">${liveTxt}${d.queued?` · <b style="color:var(--warn)">${t("live.queued",{n:d.queued})}</b>`:""}</div></div>
-  <div class="sec">${d.gpus.length>1?t("sec.gpus"):t("sec.gpu")} <span class="scope">${gib(vramU)}/${gib(vramT)} GiB · ${n(powU)} W${powL?` / ${n(powL)} W`:""}</span></div>`;
+  ${d.gpus.length?"":`<div class="sec">${t("sec.gpu")}</div><div class="sub">${t("node.no_gpu")}</div>`}<div class="sec" style="${d.gpus.length?"":"display:none"}">${d.gpus.length>1?t("sec.gpus"):t("sec.gpu")} <span class="scope">${d.hw_source?t("node.hw_from",{src:esc(d.hw_source)})+" · ":""}${gib(vramU)}/${gib(vramT)} GiB · ${n(powU)} W${powL?` / ${n(powL)} W`:""}</span></div>`;
   for(const g of d.gpus){
     html+=`<div class="gpu"><div class="gn">${esc(g.name.replace("NVIDIA GeForce ",""))}${d.gpus.length>1?` #${g.index}`:""}<span>${g.temp??"–"} °C · ${g.pcie??""}${g.pcie_max&&g.pcie&&!g.pcie.startsWith("Gen"+g.pcie_max)?` ${t("gpu.max_gen",{g:g.pcie_max})}`:""}</span></div>
     ${row(t("row.util"),g.util||0,`${n(g.util)} %`,101,101)}
@@ -328,11 +329,13 @@ function card(d){
    <div class="st"><b>${big(T.prefill_avg)}</b><span>${t("st.prefill_avg")} <span class="scope">${t("st.derived")}</span></span></div>
    <div class="st"><b>${n(T.peak_decode,1)}</b><span>${t("st.peak_decode")} <span class="scope">${t("st.alltime",{v:n(T.peak_decode_all,1)})}</span></span></div>
    <div class="st"><b>${big(T.best_prefill??T.best_prefill_all)}</b><span>${t("st.peak_prefill")} <span class="scope">${t("st.alltime",{v:big(T.best_prefill_all)})}</span></span></div>
-   <div class="st"><b>${n(T.draft_acc_pct,1)} %</b><span>${t("st.draft")} <span class="scope">(${T.drafts_n!=null?t("scope.last",{n:T.drafts_n}):T.drafts_scope==="gesamt"?t("scope.total"):esc(T.drafts_scope)})</span></span></div>
-   <div class="st"><b>${d.expert_hit!=null?n(d.expert_hit*100,1)+" %":"–"}</b><span>${t("st.hit")} <span class="scope">(${d.tiers?t("scope.tiers"):d.expert_hit_n!=null?t("scope.avg_last",{n:d.expert_hit_n}):esc(d.expert_hit_scope)})</span></span></div>
-   <div class="st"><b>${n(d.expert_cache_mib/1024,1)} GiB</b><span>${t("st.expert_cache")}</span></div>
+   ${!d.adapter||T.draft_acc_pct!=null?`<div class="st"><b>${n(T.draft_acc_pct,1)} %</b><span>${t("st.draft")} <span class="scope">(${T.drafts_n!=null?t("scope.last",{n:T.drafts_n}):T.drafts_scope==="gesamt"?t("scope.total"):esc(T.drafts_scope)})</span></span></div>`:""}
+   ${!d.adapter||d.expert_hit!=null?`<div class="st"><b>${d.expert_hit!=null?n(d.expert_hit*100,1)+" %":"–"}</b><span>${t("st.hit")} <span class="scope">(${d.tiers?t("scope.tiers"):d.expert_hit_n!=null?t("scope.avg_last",{n:d.expert_hit_n}):esc(d.expert_hit_scope)})</span></span></div>`:""}
+   ${!d.adapter||d.expert_cache_mib!=null?`<div class="st"><b>${n(d.expert_cache_mib/1024,1)} GiB</b><span>${t("st.expert_cache")}</span></div>`:""}
    <div class="st"><b>${d.last.decode!=null?n(d.last.decode,1):"–"}</b><span>${t("st.last_decode")}</span></div>
-  </div>`;
+   ${d.kv_usage!=null?`<div class="st"><b>${n(d.kv_usage,1)} %</b><span>${t("st.kv")}</span></div>`:""}
+   ${d.ttft_ms!=null?`<div class="st"><b>${n(d.ttft_ms)} ms</b><span>${t("st.ttft")}</span></div>`:""}
+  </div>${d.models_loaded?.length>1?`<div class="sub" style="margin-top:8px">${t("node.models",{list:esc(d.models_loaded.join(", "))})}</div>`:""}`;
   if(d.tiers){const r=d.tiers;html+=`<div class="sec">${t("sec.tiers")} <span class="scope">Maya</span></div>
    ${row(t("row.vram_slots"),pct(r.vram_used,r.vram_slots),`${n(r.vram_used)} / ${n(r.vram_slots)}`,101,101)}
    ${row(t("row.ram_slots"),pct(r.ram_used,r.ram_slots),`${n(r.ram_used)} / ${n(r.ram_slots)}`,101,101)}
@@ -361,7 +364,7 @@ function compare(nodes){
     [t("cmp.output"),d=>d.totals.output,0,big],
     [t("cmp.vram"),d=>d.gpus.reduce((a,g)=>a+(g.mem_total||0),0),0,v=>gib(v)+" GiB"],
     [t("cmp.power"),d=>d.gpus.reduce((a,g)=>a+(g.power||0),0),-1,v=>n(v)+" W"],
-    [t("cmp.temp"),d=>Math.max(...d.gpus.map(g=>g.temp||0)),-1,v=>n(v)+" °C"],
+    [t("cmp.temp"),d=>mx(d.gpus.map(g=>g.temp||0)),-1,v=>n(v)+" °C"],
     [t("cmp.uptime"),d=>d.uptime_s,0,dur],
     [t("cmp.latency"),d=>d.latency_ms,-1,v=>n(v)+" ms"],
   ];
@@ -403,7 +406,7 @@ function totals(nodes){
    ${col(t("tot.vram"),`${gib(S(vU))} / ${gib(S(vT))}`,"GiB",pct(S(vU),S(vT)),H.map(d=>row(label(d),pct(vU(d),vT(d)),`${gib(vU(d))} / ${gib(vT(d))}`,97,99.5)).join(""),97,99.5)}
    ${col(t("tot.ram"),`${gib(S(d=>d.ram_used))} / ${gib(S(d=>d.ram_total))}`,"GiB",pct(S(d=>d.ram_used),S(d=>d.ram_total)),H.map(d=>row(label(d),pct(d.ram_used,d.ram_total),`${gib(d.ram_used)} / ${gib(d.ram_total)}`,85,95)).join(""),85,95)}
    ${col(t("tot.cpu"),n(cpuW,1),t("tot.cpu_unit"),cpuW,H.map(d=>row(label(d),d.cpu||0,`${n(d.cpu,1)} % · ${d.threads||"?"} T`,80,95)).join(""),80,95,comb(d=>d.history.cpu,"w"),100,"var(--info)")}
-   ${col(t("tot.power"),`${n(S(pW))} / ${n(S(pL))}`,"W",pct(S(pW),S(pL)),H.map(d=>row(label(d),pct(pW(d),pL(d)||pW(d)),`${n(pW(d))} / ${n(pL(d))} W · ${n(Math.max(...d.gpus.map(g=>g.util||0)))} %`,90,99)).join(""),90,99,comb(d=>d.history.gpu_power,"s"),null,"var(--warn)")}
+   ${col(t("tot.power"),`${n(S(pW))} / ${n(S(pL))}`,"W",pct(S(pW),S(pL)),H.map(d=>row(label(d),pct(pW(d),pL(d)||pW(d)),`${n(pW(d))} / ${n(pL(d))} W · ${n(mx(d.gpus.map(g=>g.util||0)))} %`,90,99)).join(""),90,99,comb(d=>d.history.gpu_power,"s"),null,"var(--warn)")}
   </div>`;
 }
 function kpis(nodes){

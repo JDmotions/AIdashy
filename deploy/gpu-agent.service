@@ -1,0 +1,15 @@
+# GPU-Agent fuer Rechner mit fremder Engine (liefert GPU/CPU/RAM an das Dashboard, Port 9835).
+#   mkdir -p ~/.config/systemd/user && cp gpu-agent.service ~/.config/systemd/user/
+#   systemctl --user daemon-reload && systemctl --user enable --now gpu-agent.service
+# Pfad anpassen, falls das Repo woanders liegt. Nur gpu-agent.py wird gebraucht (eine Datei).
+[Unit]
+Description=GPU agent for cluster-dashboard
+After=network-online.target
+
+[Service]
+ExecStart=/usr/bin/python3 -I %h/tools/cluster-dashboard/bin/gpu-agent.py --port 9835
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=default.target

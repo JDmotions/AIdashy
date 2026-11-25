@@ -1,7 +1,6 @@
 {
   "_meta.name": "Deutsch",
   "_meta.locale": "de-DE",
-
   "app.title": "Cluster-Telemetrie",
   "hdr.connecting": "verbinde …",
   "hdr.updated": "Stand {time}",
@@ -24,10 +23,8 @@
   "btn.lang_title": "Sprache wechseln",
   "err.shot": "Screenshot fehlgeschlagen: {msg}",
   "snap.note": "keine API-Keys enthalten",
-
   "tab.overview": "Übersicht",
   "tab.tables": "Tabellen",
-
   "kpi.online": "Engines online",
   "kpi.active": "aktiv",
   "kpi.live": "tok/s live",
@@ -39,7 +36,6 @@
   "kpi.tokens": "Tokens",
   "kpi.saved": "gespart (Maya)",
   "kpi.miners": "Miner aktiv",
-
   "tot.none": "keine Engine erreichbar",
   "tot.title": "Cluster gesamt",
   "tot.scope": "{m} Rechner · {g} GPUs · {t} CPU-Threads",
@@ -49,7 +45,6 @@
   "tot.cpu": "CPU-Auslastung",
   "tot.cpu_unit": "% (nach Threads gewichtet)",
   "tot.power": "GPU-Leistung",
-
   "node.open": "öffnen ↗",
   "node.monitor": "Monitor ↗",
   "node.on": "auf {machine}",
@@ -68,7 +63,6 @@
   "live.prefill_unit": "Prefill tok/s",
   "live.queued": "{n} wartend",
   "time.ago": "vor {d}",
-
   "miner.label": "⛏ Miner",
   "miner.na": "nicht verfügbar",
   "miner.disabled": "deaktiviert",
@@ -82,7 +76,6 @@
   "miner.confirm_start": "Miner auf {name} starten?",
   "miner.confirm_stop": "Miner auf {name} stoppen?",
   "miner.failed": "Miner {action} fehlgeschlagen: {err}",
-
   "sec.gpu": "GPU",
   "sec.gpus": "GPUs",
   "sec.system": "System",
@@ -113,7 +106,6 @@
   "sp.gpu_temp": "GPU-Temp",
   "sp.vram_hit": "VRAM-Hit",
   "sp.ram_fetch": "RAM-Fetch / SSD",
-
   "st.requests": "Requests",
   "st.prompt": "Prompt-Tokens",
   "st.output": "Output-Tokens",
@@ -139,7 +131,6 @@
   "loop.on": "an",
   "loop.off": "aus",
   "conv.line": "Conversation-Cache: {a} von {b} Requests mit Reuse",
-
   "cmp.model": "Modell",
   "cmp.context": "Kontext",
   "cmp.decode_avg": "Ø Decode tok/s",
@@ -157,7 +148,6 @@
   "cmp.temp": "GPU-Temp max",
   "cmp.uptime": "Uptime",
   "cmp.latency": "Latenz Dashboard",
-
   "req.node": "Node",
   "req.time": "Zeit",
   "req.duration": "Dauer",
@@ -168,9 +158,7 @@
   "req.decode": "Decode",
   "req.hit": "Hit",
   "req.drafts": "Drafts",
-
   "foot": "Quelle: /metrics, /v1/status und /api/savings (Maya) der Server, gesammelt vom Aggregator. Engines werden pro Rechner automatisch erkannt (Port-Scan + /v1/status → service).",
-
   "cfg.title": "Konfiguration",
   "cfg.back": "← Dashboard",
   "cfg.export": "⇩ Export",
@@ -181,7 +169,7 @@
   "cfg.import_title": "Export-Datei laden (Login wird nie überschrieben)",
   "cfg.save": "Speichern",
   "cfg.machines": "Rechner",
-  "cfg.machines_hint": "Pro Rechner wird der Port-Bereich abgesucht. Welche Engine läuft (Maya, Basalt, Strata …), erkennt das Dashboard selbst über <code>/v1/status → service</code>. Zieht ein Modell auf einen anderen Rechner um, erscheint es automatisch dort. Es werden nur private LAN- oder Tailscale-Adressen abgefragt.",
+  "cfg.machines_hint": "Pro Rechner wird der Port-Bereich abgesucht. Welche Engine läuft, erkennt das Dashboard selbst: die eigenen Engines (Maya, Basalt, Strata) über <code>/v1/status → service</code>, außerdem llama.cpp, vLLM, SGLang, TGI, TabbyAPI, Ollama, LM Studio, KoboldCpp, Triton und jede OpenAI-kompatible API. Zieht ein Modell auf einen anderen Rechner um, erscheint es automatisch dort. Es werden nur private LAN- oder Tailscale-Adressen abgefragt.",
   "cfg.th_host": "Host / IP",
   "cfg.th_name": "Name",
   "cfg.th_role": "Rolle",
@@ -227,7 +215,6 @@
   "cfg.without_keys": "ohne API-Keys",
   "cfg.imported": "Importiert",
   "cfg.import_rejected": "Import abgelehnt: {e}",
-
   "srv.min_machine": "mindestens ein Rechner",
   "srv.port_range": "Port-Bereich: 1–2000 Ports",
   "srv.port_invalid": "Port-Bereich ungültig (z. B. 8080-8099,1234)",
@@ -251,11 +238,15 @@
   "srv.shot_missing": "Chrome oder Node fehlt",
   "srv.shot_timeout": "Screenshot-Timeout",
   "srv.shot_failed": "Screenshot fehlgeschlagen: {e}",
-
   "login.title": "Cluster · Login",
   "login.user": "Benutzer",
   "login.password": "Passwort",
   "login.submit": "Anmelden",
   "login.wrong": "Benutzer oder Passwort falsch.",
-  "login.locked": "Zu viele Fehlversuche – 10 Minuten gesperrt."
+  "login.locked": "Zu viele Fehlversuche – 10 Minuten gesperrt.",
+  "st.kv": "KV-Cache belegt",
+  "st.ttft": "TTFT Ø",
+  "node.hw_from": "Hardware: {src}",
+  "node.no_gpu": "keine GPU-Werte – auf diesem Rechner bin/gpu-agent.py starten",
+  "node.models": "Geladen: {list}"
 }

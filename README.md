@@ -36,6 +36,47 @@ loginctl enable-linger $USER          # läuft auch ohne Anmeldung
 
 Im LAN ist kein Login nötig, über den Tunnel immer.
 
+## Andere Engines
+
+Neben den eigenen Engines (Maya, Basalt, Strata) erkennt das Dashboard beim Port-Scan diese
+Engines selbst und zeigt sie als eigene Karte (`engines.py`):
+
+| Engine | Erkennung | Was angezeigt wird | Voraussetzung |
+|---|---|---|---|
+| llama.cpp (`llama-server`) | `/props` | Modell, Kontext, Slots, laufende/wartende Requests, Prefill/Decode tok/s, Token-Summen | Raten und Summen nur mit `--metrics` |
+| vLLM | `/metrics` (`vllm:`) | laufend/wartend, KV-Cache %, Prefix-Cache-Treffer, TTFT Ø, tok/s, Token- und Request-Summen | – |
+| SGLang | `/get_server_info` | laufend/wartend, KV-Auslastung, Cache-Treffer, tok/s, TTFT | Metriken nur mit `--enable-metrics` |
+| Hugging Face TGI | `/info` | Batch/Queue, tok/s, Token-Summen, Ø Zeit pro Token | – |
+| TabbyAPI (ExLlama) | `/.well-known/serviceinfo` | wie llama.cpp, plus gecachte Prompt-Tokens | `/metrics` mit `network.enable_metrics: true`; API-Key in der Konfiguration |
+| Ollama | `/api/version` + `/api/tags` | geladene Modelle, Kontext, Quantisierung, VRAM | `OLLAMA_HOST=0.0.0.0` (sonst nur localhost); keine Durchsatzwerte |
+| LM Studio | `/api/v0/models` | geladenes Modell, Kontext, Quantisierung | Server „im lokalen Netz bereitstellen“; keine Durchsatzwerte |
+| KoboldCpp | `/api/extra/version` | Modell, Kontext, letzter Decode tok/s, Anzahl Generierungen | – |
+| NVIDIA Triton | `/v2` | Requests, Warteschlange, GPU-Werte (Metrik-Port 8002) | – |
+| Aphrodite | `/metrics` (`aphrodite:`) | wie vLLM | – |
+| jede OpenAI-API | `/v1/models` mit Modellen | Modellliste | – |
+
+Standard-Ports dieser Engines in `scan_ports` aufnehmen, z. B.
+`1234,2242,5000-5001,8000-8002,8080-8099,11434,30000` (Standard in `config.default.json`).
+Ports ohne Engine werden `rediscover_s` Sekunden lang nicht erneut abgefragt.
+
+Die Tabelle beruht auf der Dokumentation der Engines. Echt getestet sind llama.cpp (`llama-server`)
+und LM Studio; die übrigen gegen nachgestellte Antworten im dokumentierten Format.
+Ollama und LM Studio haben keine Zähler – Durchsatz ließe sich dort nur über einen Proxy messen.
+
+### GPU-Werte für fremde Engines
+
+Fremde Engines melden keine Hardware. Das Dashboard übernimmt die Werte vom eigenen Engine-Server
+auf demselben Rechner (Hinweis „Hardware: Maya“ auf der Karte). Läuft dort keiner, liefert sie der
+GPU-Agent `bin/gpu-agent.py` (eine Datei, nur Standardbibliothek, braucht `nvidia-smi`):
+
+```bash
+python3 bin/gpu-agent.py --port 9835          # Linux und Windows
+cp deploy/gpu-agent.service ~/.config/systemd/user/ && systemctl --user enable --now gpu-agent.service
+```
+
+Das Dashboard fragt ihn automatisch auf Port 9835 ab (`gpu_agent_port` in `config.json`).
+Unter Windows z. B. per geplanter Aufgabe `pythonw gpu-agent.py` bei der Anmeldung starten.
+
 ## Sprachen
 
 Oberfläche, Konfiguration, Login und Server-Meldungen sind übersetzt (Deutsch, Englisch).

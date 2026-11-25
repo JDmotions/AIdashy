@@ -24,6 +24,13 @@ if not CFG_PATH.exists():
 CFG = json.loads(CFG_PATH.read_text())
 CFG.pop("_kommentar", None)
 
+# Adapter fuer fremde Engines (llama.cpp, vLLM, SGLang, Ollama ...). Ausdruecklich per Pfad laden:
+# der Dienst laeuft mit `python3 -I`, dabei steht das eigene Verzeichnis nicht im Suchpfad.
+import importlib.util as _ilu
+_spec = _ilu.spec_from_file_location("engines", ROOT / "engines.py")
+engines = _ilu.module_from_spec(_spec)
+_spec.loader.exec_module(engines)
+
 
 import socket
 import threading
@@ -115,15 +122,27 @@ def private_host(host):
     return bool(ips) and all(ipaddress.ip_address(i).is_private or ipaddress.ip_address(i) in cgnat for i in ips)
 
 
+NEG = {}             # (host, port) -> Zeitpunkt: dort lief keine Engine (nicht jede Runde neu abklopfen)
+
+
 def probe(host, port):
-    """Ein Engine-Server? /health mit max_context (Gateways/Webseiten fallen raus). Dann den Key finden."""
+    """Eigene Engine (/health mit max_context + /v1/status), sonst eine bekannte fremde Engine."""
+    if time.time() - NEG.get((host, port), 0) < CFG.get("rediscover_s", 30):
+        return None
     base = f"http://{host}:{port}"
     try:
         h = http_json(base + "/health", timeout=1.5)
     except Exception:
-        return None
+        h = None
     if not isinstance(h, dict) or "max_context" not in h:
-        return None
+        try:
+            found = engines.detect(base, all_keys())
+        except Exception:
+            found = None
+        if not found:
+            NEG[(host, port)] = time.time()
+            return None
+        return {"host": host, "port": port, "url": base, "key": found[1], "service": found[0], "adapter": True}
     for key in [None] + all_keys():
         try:
             st = http_json(base + "/v1/status", key, timeout=2)
@@ -317,13 +336,21 @@ def normalize(node, m, st, sav):
 def collect(machine, srv):
     t0 = time.time()
     svc = (CFG.get("services") or {}).get(srv["service"], {})
-    node = {"id": f'{srv["service"]}@{srv["host"]}:{srv["port"]}', "name": svc.get("name") or srv["service"].title(),
+    dn, dc, du = engines.DEFAULTS.get(srv["service"], (srv["service"].title(), "#9d9daa", "/"))
+    node = {"id": f'{srv["service"]}@{srv["host"]}:{srv["port"]}', "name": svc.get("name") or dn,
             "machine": machine.get("name"), "role": machine.get("role"), "host": srv["host"], "port": srv["port"],
-            "color": svc.get("color") or "#9d9daa", "ui": srv["url"] + svc.get("ui", "/"),
+            "color": svc.get("color") or dc, "ui": srv["url"] + svc.get("ui", du),
             "url": srv["url"], "key": srv["key"], "service": srv["service"]}
     pub = {k: v for k, v in node.items() if k not in ("url", "key")}
     if srv.get("auth_error"):
         return {**pub, "online": False, "error": srv["auth_error"], "error_code": "err.no_key", "latency_ms": 0}
+    if srv.get("adapter"):
+        try:
+            d = {**engines.poll(srv, pub), **{k: pub[k] for k in ("machine", "port", "color", "service")}}
+        except Exception as ex:
+            d = {**pub, "online": False, "error": f"{type(ex).__name__}: {ex}"}
+        d["latency_ms"] = round((time.time() - t0) * 1000)
+        return d
     try:
         with ThreadPoolExecutor(3) as ex:
             fm = ex.submit(get, node, "/metrics")
@@ -356,10 +383,57 @@ def collect_machine(machine):
                  "error_params": {"ports": CFG.get("scan_ports", "8080-8099")}}]
     with ThreadPoolExecutor(len(servers)) as ex:
         out = list(ex.map(lambda s: collect(machine, s), servers))
+    fill_hardware(machine, out)
     if any(not d["online"] and not d.get("error_code") for d in out):
         with DISC_LOCK:
             DISC.pop(machine["host"], None)        # beim naechsten Tick neu suchen
     return out
+
+
+AGENT = {}           # host -> {"at": t, "data": {...} | None}
+
+
+def gpu_agent(host):
+    """Optionaler GPU-Agent (bin/gpu-agent.py) auf dem Rechner; Fehlschlag 30 s merken."""
+    port = CFG.get("gpu_agent_port", 9835)
+    a = AGENT.get(host)
+    if a and time.time() - a["at"] < (1.5 if a["data"] else CFG.get("rediscover_s", 30)):
+        return a["data"]
+    try:
+        data = http_json(f"http://{host}:{port}/gpu", timeout=1.5)
+    except Exception:
+        data = None
+    AGENT[host] = {"at": time.time(), "data": data if isinstance(data, dict) else None}
+    return AGENT[host]["data"]
+
+
+def fill_hardware(machine, nodes):
+    """Fremde Engines melden keine Hardware. Werte vom eigenen Engine-Server auf demselben Rechner
+    uebernehmen, sonst vom GPU-Agenten."""
+    need = [d for d in nodes if d.get("online") and d.get("adapter") and not d.get("gpus")]
+    if not need:
+        return
+    donor = next((d for d in nodes if d.get("online") and not d.get("adapter") and d.get("gpus")), None)
+    if donor:
+        hw = {k: donor.get(k) for k in ("gpus", "cpu", "cpu_name", "threads", "driver", "cuda", "ram_used", "ram_total")}
+        hist = {k: (donor.get("history") or {}).get(k, []) for k in ("cpu", "gpu_util", "gpu_temp", "gpu_power")}
+        src = donor.get("name")
+    else:
+        a = gpu_agent(machine["host"])
+        if not a:
+            return
+        hw = {k: a.get(k) for k in ("gpus", "cpu", "cpu_name", "threads", "driver", "cuda", "ram_used", "ram_total")}
+        g = a.get("gpus") or []
+        h = engines.push_hist("agent@" + machine["host"], cpu=a.get("cpu"),
+                              gpu_util=sum(x.get("util") or 0 for x in g) / len(g) if g else 0,
+                              gpu_temp=max((x.get("temp") or 0) for x in g) if g else 0,
+                              gpu_power=sum(x.get("power") or 0 for x in g))
+        hist = {k: h[k] for k in ("cpu", "gpu_util", "gpu_temp", "gpu_power")}
+        src = "gpu-agent"
+    for d in need:
+        d.update(hw)
+        d["history"] = {**d.get("history", {}), **hist}
+        d["hw_source"] = src
 
 
 def _alive(srv):
