@@ -91,6 +91,7 @@ button:hover{color:var(--ink);border-color:var(--accent)}
 /* ---- Kopfleiste einklappbar + Auto-Ausblenden beim Scrollen ---- */
 header{transition:transform .25s ease}
 .hdtog{display:none;margin-left:auto;padding:4px 10px;font-size:13px;line-height:1}
+#kpiCard{display:none}
 /* ---- Hochformat / Smartphone ---- */
 @media (max-width:640px){
   body.hd-min .kpis,body.hd-min .btns{display:none}
@@ -125,7 +126,10 @@ header{transition:transform .25s ease}
   body.tabbed #total{margin-bottom:0!important}
   body.tabbed .wide{margin-top:0}
   body.tabbed main{padding-bottom:calc(78px + env(safe-area-inset-bottom))}
-  body.tabbed.tab-ov.hd-min .kpis{display:grid}
+  /* Kennzahlen im Tab-Layout als mitscrollende Karte auf der Uebersicht, nicht im klebenden Header */
+  body.tabbed header .kpis{display:none!important}
+  body.tabbed.tab-ov #kpiCard{display:block;margin-bottom:10px}
+  #kpiCard .kpis{display:grid;width:100%}
   #tabs{display:none}
   body.shot .btns,body.shot .hdtog{display:none!important}
   body.tabbed #tabs{display:flex;position:fixed;left:0;right:0;bottom:0;z-index:6;
@@ -211,6 +215,7 @@ body.th-grad table th,body.th-img table th{background:transparent}
   <div class="btns"><button id="bTheme" title="Hintergrund umschalten">🌴 Stil: aus</button><button id="bIp">IPs ausblenden</button><button id="bSnap">Snapshot exportieren</button><button id="bShot" title="ganze Seite als PNG (serverseitig gerendert)">📷 Ganze Seite</button><button onclick="location.href='config'">⚙ Konfiguration</button></div>
 </header>
 <main>
+  <div class="card" id="kpiCard" style="--nc:var(--accent)"></div>
   <div class="card total" id="total" style="--nc:var(--accent);margin-bottom:16px"></div>
   <div class="grid" id="nodes"></div>
   <div class="grid wide" id="wide">
@@ -392,7 +397,8 @@ function kpis(nodes){
   const sav=on.find(d=>d.savings)?.savings?.usd;
   const k=[[`${on.length}/${nodes.length}`,"Engines online"],[on.filter(isBusy).length,"aktiv"],[n(live,1),"tok/s live"],[n(sum(d=>d.totals.peak_decode_all??d.totals.peak_decode)),"Peak Decode Σ"],[big(sum(d=>d.totals.best_prefill_all??d.totals.best_prefill)),"Peak Prefill Σ"],[n(sum(d=>d.gpus.reduce((a,g)=>a+(g.power||0),0)))+" W","GPU-Leistung"],
     [`${gib(vU)}/${gib(vT)}`,"VRAM GiB"],[n(sum(d=>d.totals.requests)),"Requests"],[big(sum(d=>d.totals.prompt)+sum(d=>d.totals.output)),"Tokens"],[sav!=null?"$"+n(sav,2):"–","gespart (Maya)"],(()=>{const M=Object.values(LAST?.miners||{});return [`${M.filter(m=>m.running).length}/${M.length}`,"Miner aktiv"]})()];
-  $("#kpis").innerHTML=k.map(([b,s])=>`<div class="kpi"><b>${b}</b><span>${s}</span></div>`).join("");
+  const kh=k.map(([b,s])=>`<div class="kpi"><b>${b}</b><span>${s}</span></div>`).join("");
+  $("#kpis").innerHTML=kh; $("#kpiCard").innerHTML=`<div class="kpis">${kh}</div>`;
 }
 
 let LAST=null;
