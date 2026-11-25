@@ -35,6 +35,15 @@ DEFAULTS = {
 }
 
 
+# Standard-Ports der Engines (Vorbelegung im Konfig-Schritt "Andere Engines")
+PORTS = {
+    "llamacpp": "8080-8099", "vllm": "8000", "sglang": "30000", "tgi": "3000,8080", "tabbyapi": "5000",
+    "ollama": "11434", "lmstudio": "1234", "koboldcpp": "5001", "triton": "8000", "aphrodite": "2242",
+    "openai": "",
+}
+ORDER = list(PORTS)
+
+
 # ------------------------------------------------------------------ HTTP
 def _get(base, path, key=None, raw=False, timeout=TIMEOUT):
     req = urllib.request.Request(base + path, headers={"Accept": "application/json, text/plain"})
@@ -472,46 +481,52 @@ POLL = {"llamacpp": poll_llamacpp, "vllm": poll_vllm, "sglang": poll_sglang, "tg
 
 
 # ------------------------------------------------------------------ Erkennung
-def detect(base, keys):
+def detect(base, keys, allowed=None):
     """Welche Engine laeuft unter base? -> (service, key) oder None. Nur GET-Anfragen, kurze Timeouts.
-    Reihenfolge: eindeutige Endpunkte zuerst, Metrik-Praefix und /v1/models zuletzt."""
+    allowed: Menge eingeschalteter Engines (None = alle). Reihenfolge: eindeutige Endpunkte zuerst,
+    Metrik-Praefix und /v1/models zuletzt."""
+    on = (lambda svc: True) if allowed is None else (lambda svc: svc in allowed)
+    if allowed is not None and not allowed:
+        return None
+
     def j(path, use_keys=True):
         return _try(base, path, keys if use_keys else (), timeout=1.0)
 
-    v, k = j("/get_server_info")
+    v, k = j("/get_server_info") if on("sglang") else (None, None)
     if isinstance(v, dict) and ("model_path" in v or "tp_size" in v or "served_model_name" in v):
         return "sglang", k
-    v, k = j("/.well-known/serviceinfo")
+    v, k = j("/.well-known/serviceinfo") if on("tabbyapi") else (None, None)
     if isinstance(v, dict) and re.search(r"tabby|exllama", json.dumps(v), re.I):
         return "tabbyapi", k
-    v, k = j("/props")
+    v, k = j("/props") if on("llamacpp") else (None, None)
     if isinstance(v, dict) and "default_generation_settings" in v:
         return "llamacpp", k
-    v, k = j("/info")
+    v, k = j("/info") if on("tgi") else (None, None)
     if isinstance(v, dict) and ("router" in v or ("model_id" in v and "max_total_tokens" in v)):
         return "tgi", k
-    v, k = j("/api/extra/version")
+    v, k = j("/api/extra/version") if on("koboldcpp") else (None, None)
     if isinstance(v, dict) and str(v.get("result", "")).lower() == "koboldcpp":
         return "koboldcpp", k
-    v, _ = j("/api/version", False)
+    v, _ = j("/api/version", False) if on("ollama") else (None, None)
     if isinstance(v, dict) and "version" in v and len(v) <= 3:
         t, _ = j("/api/tags", False)
         if isinstance(t, dict) and "models" in t:
             return "ollama", None
-    v, k = j("/api/v0/models")
+    v, k = j("/api/v0/models") if on("lmstudio") else (None, None)
     if isinstance(v, dict) and isinstance(v.get("data"), list) and \
             all(isinstance(x, dict) and ("state" in x or "compatibility_type" in x) for x in v["data"]):
         return "lmstudio", k
-    v, _ = j("/v2", False)
+    v, _ = j("/v2", False) if on("triton") else (None, None)
     if isinstance(v, dict) and str(v.get("name", "")).lower() == "triton":
         return "triton", None
-    text, k = _try(base, "/metrics", keys, raw=True, timeout=1.0)
+    text, k = _try(base, "/metrics", keys, raw=True, timeout=1.0) \
+        if any(on(x) for x in ("vllm", "sglang", "llamacpp", "tabbyapi", "aphrodite", "tgi")) else (None, None)
     if isinstance(text, str):
         for prefix, svc in (("vllm:", "vllm"), ("sglang:", "sglang"), ("llamacpp:", "llamacpp"),
                             ("tabbyapi:", "tabbyapi"), ("aphrodite:", "aphrodite"), ("tgi_", "tgi")):
-            if re.search(r"^" + re.escape(prefix), text, re.M):
+            if on(svc) and re.search(r"^" + re.escape(prefix), text, re.M):
                 return svc, k
-    v, k = j("/v1/models")
+    v, k = j("/v1/models") if on("openai") else (None, None)
     # Rueckfall nur mit mindestens einem Modell - Gateways/Proxys mit leerer Liste sind keine Engine
     if isinstance(v, dict) and v.get("object") == "list" and isinstance(v.get("data"), list) and v["data"]:
         return "openai", k

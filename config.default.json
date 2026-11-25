@@ -4,7 +4,7 @@
   "host": "0.0.0.0",
   "timeout_s": 4.0,
   "poll_s": 2.0,
-  "scan_ports": "1234,2242,5000-5001,8000-8002,8080-8099,11434,30000",
+  "scan_ports": "8080-8099",
   "rediscover_s": 30,
   "keys": [],
   "key_files": [],
@@ -33,5 +33,51 @@
     }
   },
   "miners": {},
-  "gpu_agent_port": 9835
+  "gpu_agent_port": 9835,
+  "engines": {
+    "llamacpp": {
+      "enabled": true,
+      "ports": "8080-8099"
+    },
+    "vllm": {
+      "enabled": true,
+      "ports": "8000"
+    },
+    "sglang": {
+      "enabled": true,
+      "ports": "30000"
+    },
+    "tgi": {
+      "enabled": true,
+      "ports": "3000,8080"
+    },
+    "tabbyapi": {
+      "enabled": true,
+      "ports": "5000"
+    },
+    "ollama": {
+      "enabled": true,
+      "ports": "11434"
+    },
+    "lmstudio": {
+      "enabled": true,
+      "ports": "1234"
+    },
+    "koboldcpp": {
+      "enabled": true,
+      "ports": "5001"
+    },
+    "triton": {
+      "enabled": true,
+      "ports": "8000"
+    },
+    "aphrodite": {
+      "enabled": true,
+      "ports": "2242"
+    },
+    "openai": {
+      "enabled": true,
+      "ports": ""
+    }
+  }
 }

@@ -95,12 +95,33 @@ def get(node, path):
     return http_json(node["url"] + path, node.get("key"))
 
 
-def scan_ports():
+def parse_ports(spec):
+    """"8080-8099,1234" -> [8080, ..., 8099, 1234]; leer -> []."""
     out = []
-    for part in str(CFG.get("scan_ports", "8080-8099")).split(","):
-        a, _, b = part.strip().partition("-")
-        out += list(range(int(a), int(b or a) + 1))
+    for part in str(spec or "").replace(" ", "").split(","):
+        if not part:
+            continue
+        a, _, b = part.partition("-")
+        a, b = int(a), int(b or a)
+        if not (0 < a <= b <= 65535):
+            raise ValueError(part)
+        out += list(range(a, b + 1))
     return out
+
+
+def enabled_engines(cfg=None):
+    """Konfig-Schritt "Andere Engines": eingeschaltete fremde Engines -> {service: ports}."""
+    e = (cfg or CFG).get("engines") or {}
+    return {k: v.get("ports", "") for k, v in e.items() if isinstance(v, dict) and v.get("enabled")}
+
+
+def scan_ports(cfg=None):
+    """Port-Bereich der eigenen Engines plus die Ports der eingeschalteten fremden Engines."""
+    cfg = cfg or CFG
+    ports = parse_ports(cfg.get("scan_ports", "8080-8099"))
+    for spec in enabled_engines(cfg).values():
+        ports += parse_ports(spec)
+    return sorted(set(ports))
 
 
 def port_open(host, port):
@@ -123,20 +144,26 @@ def private_host(host):
 
 
 NEG = {}             # (host, port) -> Zeitpunkt: dort lief keine Engine (nicht jede Runde neu abklopfen)
+NEG_S = 600          # Ports, die antworten, aber keine Engine sind (Gateways, Webseiten): 10 min Ruhe
+_GATEWAY = __import__("re").compile(r"gateway|proxy|router|balancer", __import__("re").I)
 
 
 def probe(host, port):
     """Eigene Engine (/health mit max_context + /v1/status), sonst eine bekannte fremde Engine."""
-    if time.time() - NEG.get((host, port), 0) < CFG.get("rediscover_s", 30):
+    if time.time() - NEG.get((host, port), 0) < NEG_S:
         return None
     base = f"http://{host}:{port}"
     try:
         h = http_json(base + "/health", timeout=1.5)
     except Exception:
         h = None
+    if isinstance(h, dict) and "max_context" not in h and (
+            "backends" in h or _GATEWAY.search(str(h.get("service") or h.get("name") or ""))):
+        NEG[(host, port)] = time.time()          # Gateway/Proxy vor anderen Engines: keine eigene Karte
+        return None
     if not isinstance(h, dict) or "max_context" not in h:
         try:
-            found = engines.detect(base, all_keys())
+            found = engines.detect(base, all_keys(), set(enabled_engines()))
         except Exception:
             found = None
         if not found:
@@ -158,20 +185,43 @@ DISC = {}            # host -> {"at": t, "servers": [...]}
 DISC_LOCK = threading.Lock()
 
 
+DISC_BUSY = set()
+
+
 def discover(machine, force=False):
+    """Engines eines Rechners. Veraltetes Ergebnis wird sofort geliefert und im Hintergrund erneuert,
+    damit eine langsame Suche (z. B. Gateways mit Timeouts) die Abfrage nicht aufhaelt."""
     host = machine["host"]
     with DISC_LOCK:
         d = DISC.get(host)
-    if d and not force and time.time() - d["at"] < CFG.get("rediscover_s", 30):
-        return d["servers"]
+        if d and not force:
+            if time.time() - d["at"] >= CFG.get("rediscover_s", 30) and host not in DISC_BUSY:
+                DISC_BUSY.add(host)
+                threading.Thread(target=_rediscover, args=(machine,), daemon=True).start()
+            return d["servers"]
+    return _scan(machine, d["servers"] if d else [])
+
+
+def _rediscover(machine):
+    try:
+        with DISC_LOCK:
+            old = (DISC.get(machine["host"]) or {}).get("servers", [])
+        _scan(machine, old)
+    finally:
+        DISC_BUSY.discard(machine["host"])
+
+
+def _scan(machine, known):
+    host = machine["host"]
     if not private_host(host):
         with DISC_LOCK:
             DISC[host] = {"at": time.time(), "servers": []}
         return []
     ports = scan_ports()
+    keep = {s["port"]: s for s in known if not s.get("auth_error")}     # schon bekannte Engines nicht neu identifizieren
     with ThreadPoolExecutor(16) as ex:
         open_ports = [p for p, ok in zip(ports, ex.map(lambda p: port_open(host, p), ports)) if ok]
-        servers = [s for s in ex.map(lambda p: probe(host, p), open_ports) if s]
+        servers = [s for s in ex.map(lambda p: keep.get(p) or probe(host, p), open_ports) if s]
     with DISC_LOCK:
         DISC[host] = {"at": time.time(), "servers": servers}
     return servers
@@ -680,6 +730,9 @@ def public_config():
     c["keys"] = [{"index": i, "mask": mask(k)} for i, k in enumerate(CFG.get("keys") or [])]
     c.pop("auth", None)
     c.pop("miners", None)
+    # alle bekannten fremden Engines mit Standard-Ports (fuer den Konfig-Schritt "Andere Engines")
+    c["engine_catalog"] = [{"id": k, "name": engines.DEFAULTS[k][0], "ports": engines.PORTS[k]} for k in engines.ORDER]
+    c.setdefault("engines", {})
     return c
 
 
@@ -728,7 +781,7 @@ def import_config(data, allow_privileged):
         return False, [M("srv.no_config")], []
     notes = []
     new = {k: data.get(k, CFG.get(k)) for k in ("port", "host", "timeout_s", "poll_s", "rediscover_s",
-                                                  "scan_ports", "key_files", "machines", "services")}
+                                                  "scan_ports", "key_files", "machines", "services", "engines")}
     imp_keys = [k for k in data.get("keys") or [] if isinstance(k, str) and k.strip()]
     if imp_keys:
         new["keys"] = [{"value": k} for k in imp_keys]
@@ -767,9 +820,13 @@ def apply_config(new, miners=None):
         machines.append({"host": host, "name": str(m.get("name") or host).strip(), "role": str(m.get("role") or "").strip()})
     if not machines:
         err.append(M("srv.min_machine"))
+    ports = str(new.get("scan_ports", "")).replace(" ", "")
+    eng = {}
+    for sid, ev in (new.get("engines") or {}).items():
+        if sid in engines.PORTS and isinstance(ev, dict):
+            eng[sid] = {"enabled": bool(ev.get("enabled")), "ports": str(ev.get("ports", "")).replace(" ", "")}
     try:
-        ports = str(new.get("scan_ports", "")).replace(" ", "")
-        old = CFG.get("scan_ports"); CFG["scan_ports"] = ports; n = len(scan_ports()); CFG["scan_ports"] = old
+        n = len(scan_ports({"scan_ports": ports, "engines": eng}))
         if not 0 < n <= 2000:
             err.append(M("srv.port_range"))
     except Exception:
@@ -793,7 +850,7 @@ def apply_config(new, miners=None):
            "timeout_s": max(1, min(30, float(new.get("timeout_s", CFG.get("timeout_s", 4))))),
            "poll_s": max(1, min(60, float(new.get("poll_s", CFG.get("poll_s", 2))))),
            "rediscover_s": max(5, min(3600, int(new.get("rediscover_s", CFG.get("rediscover_s", 30))))),
-           "scan_ports": ports, "keys": keys,
+           "scan_ports": ports, "keys": keys, "engines": eng,
            "key_files": [str(f).strip() for f in new.get("key_files") or [] if str(f).strip()],
            "machines": machines, "services": services,
            "miners": miners if miners is not None else (CFG.get("miners") or {}),
@@ -1044,6 +1101,10 @@ class H(BaseHTTPRequestHandler):
                 return self._json(400, {"ok": False, "errors": [M("srv.host_missing")]})
             m = next((x for x in CFG["machines"] if x["host"] == host), {"host": host, "name": host})
             t0 = time.time()
+            for key in [k for k in NEG if k[0] == host]:     # "Jetzt suchen" = wirklich frisch suchen
+                NEG.pop(key, None)
+            with DISC_LOCK:
+                DISC.pop(host, None)
             srv = discover(m, force=True)
             return self._json(200, {"ok": True, "host": host, "ms": round((time.time() - t0) * 1000),
                                     "servers": [{"port": s["port"], "service": s["service"],

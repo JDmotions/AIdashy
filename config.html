@@ -66,6 +66,13 @@ label{display:block;font-size:12px;color:var(--muted);margin-bottom:4px}
   </section>
 
   <section class="card">
+    <h2 data-i18n="cfg.other"></h2>
+    <p class="hint" data-i18n-html="cfg.other_hint"></p>
+    <table><thead><tr><th style="width:8%" data-i18n="cfg.th_detect"></th><th style="width:18%" data-i18n="cfg.th_engine"></th><th style="width:24%" data-i18n="cfg.th_ports"></th><th data-i18n="cfg.th_note"></th></tr></thead><tbody id="others"></tbody></table>
+    <div class="row-actions"><button id="othAll" data-i18n="cfg.all_on"></button><button id="othNone" data-i18n="cfg.all_off"></button><button id="othDef" data-i18n="cfg.default_ports"></button></div>
+  </section>
+
+  <section class="card">
     <h2 data-i18n="cfg.keys"></h2>
     <p class="hint" data-i18n-html="cfg.keys_hint">Bei jedem gefundenen Server werden die Keys der Reihe nach ausprobiert, der erste passende wird genommen. Gespeicherte Keys sind maskiert und bleiben erhalten, solange du sie nicht ersetzt. Key-Dateien sind JSON-Dateien mit einem Feld <code>api_key</code>, etwa die Run-Config von Maya. Sie werden bei jeder Suche neu gelesen.</p>
     <table><tbody id="keys"></tbody></table>
@@ -111,8 +118,13 @@ function fRow(f=""){const tr=document.createElement("tr");
   tr.innerHTML=`<td><input class="mono" value="${esc(f)}" placeholder="${t("cfg.path_ph")}" data-i18n-ph="cfg.path_ph"></td><td style="width:1%"><button class="x">✕</button></td>`;
   tr.querySelector("button").onclick=()=>tr.remove();$("#keyfiles").append(tr);}
 
+function oRow(e,state){const tr=document.createElement("tr");tr.dataset.id=e.id;tr.dataset.def=e.ports;
+  const on=!!state?.enabled, ports=state?.ports??e.ports;
+  tr.innerHTML=`<td><input type="checkbox" data-k="on" ${on?"checked":""} style="width:auto"></td><td>${esc(e.name)}</td><td><input class="mono" data-k="ports" value="${esc(ports)}" placeholder="${e.id==="openai"?"–":esc(e.ports)}"></td><td class="hint" style="margin:0" data-i18n="eng.${esc(e.id)}">${t("eng."+e.id)}</td>`;
+  $("#others").append(tr);}
 function fill(c){CFG=c;
-  ["machines","services","keys","keyfiles"].forEach(id=>$("#"+id).innerHTML="");
+  ["machines","services","keys","keyfiles","others"].forEach(id=>$("#"+id).innerHTML="");
+  (c.engine_catalog||[]).forEach(e=>oRow(e,(c.engines||{})[e.id]));
   (c.machines||[]).forEach(mRow);
   Object.entries(c.services||{}).forEach(([k,v])=>sRow(k,v));
   (c.keys||[]).forEach(kRow);(c.key_files||[]).forEach(fRow);
@@ -126,6 +138,7 @@ function gather(){
     machines:[...$("#machines").children].map(tr=>({host:val(tr,"host"),name:val(tr,"name"),role:val(tr,"role")})).filter(m=>m.host),
     services,
     keys:[...$("#keys").children].map(tr=>tr.dataset.keep!==undefined?{keep:+tr.dataset.keep}:{value:tr.querySelector("input").value}).filter(k=>k.keep!==undefined||k.value.trim()),
+    engines:Object.fromEntries([...$("#others").children].map(tr=>[tr.dataset.id,{enabled:tr.querySelector("[data-k=on]").checked,ports:tr.querySelector("[data-k=ports]").value.trim()}])),
     key_files:[...$("#keyfiles").children].map(tr=>tr.querySelector("input").value.trim()).filter(Boolean),
     scan_ports:$("#scan_ports").value, rediscover_s:+$("#rediscover_s").value, poll_s:+$("#poll_s").value,
     timeout_s:+$("#timeout_s").value, port:+$("#port").value, host:$("#host").value.trim()};
@@ -162,6 +175,9 @@ $("#impF").onchange=async e=>{const f=e.target.files[0];e.target.value="";if(!f)
   const [ok,d]=await post("api/config/import",data);
   if(ok){fill(d.config);msg(t("cfg.imported")+(d.notes?.length?" – "+d.notes.join(" · "):""),true);for(const tr of $("#machines").children) scan(tr);}
   else msg(t("cfg.import_rejected",{e:(d.errors||[]).join(", ")}),false);};
+$("#othAll").onclick=()=>$("#others").querySelectorAll("[data-k=on]").forEach(x=>x.checked=true);
+$("#othNone").onclick=()=>$("#others").querySelectorAll("[data-k=on]").forEach(x=>x.checked=false);
+$("#othDef").onclick=()=>[...$("#others").children].forEach(tr=>tr.querySelector("[data-k=ports]").value=tr.dataset.def);
 $("#addM").onclick=()=>mRow().querySelector("input").focus();
 $("#addS").onclick=()=>sRow();
 $("#addK").onclick=()=>kRow();
